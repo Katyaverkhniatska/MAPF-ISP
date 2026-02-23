@@ -185,40 +185,119 @@ class GreedyAllocation(AllocationStrategy):
 
 #TODO: Find a bug -- the algorithm seems to find the bottleneck positions correctly, but attackers still win by finding the second best paths.
 class BottleneckAllocation(AllocationStrategy):
-    """Bottleneck simulation allocation strategy (simplified version)"""
+    """Bottleneck simulation allocation strategy
+    
+    Implements iterative bottleneck detection from the paper:
+    1. Simulate attacker paths
+    2. Find most frequent positions (bottleneck)
+    3. Mark as forbidden (simulating defender blocking it)
+    4. Re-simulate paths avoiding forbidden positions
+    5. Find next bottleneck
+    6. Repeat until all defenders allocated
+    
+    This prevents attackers from simply routing around defenders.
+    """
     
     @staticmethod
     def allocate(grid: Grid, defenders: List[Agent], targets: List[Position], 
-                 attackers: List[Agent] = None) -> Dict[int, Position]:
+                 attackers: List[Agent] = None, debug: bool = False) -> Dict[int, Position]:
         if not attackers:
             return RandomAllocation.allocate(grid, defenders, targets)
         
         allocation = {}
+        forbidden_positions: Set[Position] = set()
+        allocated_defenders = 0
+        iteration = 0
+
+        # Assign each attacker to a target (1-to-1 mapping)
+        attacker_targets = {}
+        for i, attacker in enumerate(attackers):
+            if i < len(targets):
+                attacker_targets[attacker.id] = targets[i]
+
+        if debug:
+            print(f"\nBottleneck Detection (Iterative)")
+            print(f"Attackers: {len(attackers)}, Defenders: {len(defenders)}, Targets: {len(targets)}")
         
-        # Simulate attacker paths to targets
-        path_frequency: Dict[Position, int] = {}
-        
-        for attacker in attackers:
-            if attacker.target:
-                path = PathFinder.find_path(grid, attacker.position, attacker.target)
-                for pos in path:
-                    path_frequency[pos] = path_frequency.get(pos, 0) + 1
-        
-        # Find most frequent positions (bottlenecks)
-        if path_frequency:
-            bottleneck_positions = sorted(path_frequency.items(), 
-                                         key=lambda x: x[1], reverse=True)
+        # Iteratively find bottlenecks
+        while allocated_defenders < len(defenders):
+            iteration += 1
             
-            # Allocate defenders to top bottlenecks
-            for i, defender in enumerate(defenders):
-                if i < len(bottleneck_positions):
-                    allocation[defender.id] = bottleneck_positions[i][0]
-                elif i - len(bottleneck_positions) < len(targets):
-                    # Remaining defenders go to targets
-                    allocation[defender.id] = targets[i - len(bottleneck_positions)]
-        else:
-            # Fallback to greedy
-            return GreedyAllocation.allocate(grid, defenders, targets)
+            # Simulate attacker paths with current forbidden positions
+            path_frequency: Dict[Position, int] = {}
+        
+            for attacker in attackers:
+                if attacker.id in attacker_targets:
+                    target = attacker_targets[attacker.id]
+                    # Find path avoiding forbidden positions
+                    path = PathFinder.find_path(grid, attacker.position, target, 
+                                               forbidden_positions)
+                    
+                    if path:
+                        # Count frequency of each position in path
+                        # Skip start and end positions
+                        for pos in path[1:-1]:
+                            path_frequency[pos] = path_frequency.get(pos, 0) + 1
+            
+            if not path_frequency:
+                # No more bottlenecks found, assign remaining defenders to targets
+                if debug:
+                    print(f"  Iteration {iteration}: No more bottlenecks, assigning to targets")
+                
+                remaining_defenders = [d for d in defenders if d.id not in allocation]
+                remaining_targets = [t for t in targets if t not in allocation.values()]
+                
+                for defender in remaining_defenders:
+                    if remaining_targets:
+                        closest_target = min(remaining_targets, 
+                                            key=lambda t: abs(defender.position[0] - t[0]) + 
+                                                        abs(defender.position[1] - t[1]))
+                        allocation[defender.id] = closest_target
+                        remaining_targets.remove(closest_target)
+                break
+            
+            # Find position with highest frequency (bottleneck)
+            bottleneck_pos = max(path_frequency.items(), key=lambda x: x[1])[0]
+            frequency = path_frequency[bottleneck_pos]
+            
+            if debug:
+                print(f"  Iteration {iteration}: Found bottleneck at {bottleneck_pos} "
+                      f"(frequency: {frequency})")
+            
+            # Check if this bottleneck is actually valuable
+            # (affects at least 2 attackers and has high frequency)
+            if frequency >= 2:
+                # Assign next available defender to this bottleneck
+                for defender in defenders:
+                    if defender.id not in allocation:
+                        allocation[defender.id] = bottleneck_pos
+                        allocated_defenders += 1
+                        # Mark as forbidden for next iteration
+                        forbidden_positions.add(bottleneck_pos)
+                        
+                        if debug:
+                            print(f"    -> Defender {defender.id} assigned to {bottleneck_pos}")
+                        break
+            else:
+                # Low-value bottleneck, assign remaining defenders to targets
+                if debug:
+                    print(f"  Iteration {iteration}: Bottleneck has low value (freq={frequency}), "
+                          f"assigning remaining to targets")
+                
+                remaining_defenders = [d for d in defenders if d.id not in allocation]
+                remaining_targets = [t for t in targets if t not in allocation.values()]
+                
+                for defender in remaining_defenders:
+                    if remaining_targets:
+                        closest_target = min(remaining_targets, 
+                                            key=lambda t: abs(defender.position[0] - t[0]) + 
+                                                        abs(defender.position[1] - t[1]))
+                        allocation[defender.id] = closest_target
+                        remaining_targets.remove(closest_target)
+                break
+        
+        if debug:
+            print(f"✓ Allocation complete: {len(allocation)} defenders assigned\n")
         
         return allocation
 
@@ -268,6 +347,8 @@ class Simulation:
                 defender.set_target(allocation[defender.id])
         
         self.time_step = 0
+        self.initial_positions_attackers = {a.id: a.position for a in self.attackers}
+        self.initial_positions_defenders = {d.id: d.position for d in self.defenders}
         
     def get_occupied_positions(self) -> Set[Position]:
         """Get all positions currently occupied by agents"""
@@ -282,8 +363,25 @@ class Simulation:
             return False
         
         occupied = self.get_occupied_positions()
+
+        # Move defenders
+        for defender in self.defenders:
+            if not defender.reached_target and defender.target:
+                occupied_others = occupied - {defender.position}
+                path = PathFinder.find_path(self.grid, defender.position, 
+                                           defender.target, occupied_others)
+                
+                if len(path) > 1:
+                    next_pos = path[1]
+                    if next_pos not in occupied_others:
+                        occupied.remove(defender.position)
+                        defender.move(next_pos)
+                        occupied.add(next_pos)
+                        
+                        if defender.is_at_target():
+                            defender.reached_target = True
         
-        # Move attackers first
+        # Move attackers
         for attacker in self.attackers:
             if not attacker.reached_target and attacker.target:
                 # Find path avoiding current occupied positions (excluding self)
@@ -301,23 +399,6 @@ class Simulation:
                         
                         if attacker.is_at_target():
                             attacker.reached_target = True
-        
-        # Move defenders
-        for defender in self.defenders:
-            if not defender.reached_target and defender.target:
-                occupied_others = occupied - {defender.position}
-                path = PathFinder.find_path(self.grid, defender.position, 
-                                           defender.target, occupied_others)
-                
-                if len(path) > 1:
-                    next_pos = path[1]
-                    if next_pos not in occupied_others:
-                        occupied.remove(defender.position)
-                        defender.move(next_pos)
-                        occupied.add(next_pos)
-                        
-                        if defender.is_at_target():
-                            defender.reached_target = True
         
         self.time_step += 1
         return True

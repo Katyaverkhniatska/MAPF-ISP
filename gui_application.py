@@ -146,10 +146,9 @@ class AreaProtectionGUI:
         # Draw targets
         for x, y in self.simulation.targets:
             circle = Circle((x, y), 0.3, facecolor='gold', 
-                          edgecolor='orange', linewidth=2, alpha=0.7)
+                          edgecolor='orange', linewidth=2, alpha=0.75)
             self.ax.add_patch(circle)
-            self.ax.text(x, y, '🎯', ha='center', va='center', fontsize=10)
-        
+                    
         # Draw attackers
         for attacker in self.simulation.attackers:
             x, y = attacker.position
@@ -159,7 +158,6 @@ class AreaProtectionGUI:
             
             # Draw path if exists
             if attacker.target and not attacker.reached_target:
-                path = [(x, y)]
                 tx, ty = attacker.target
                 self.ax.plot([x, tx], [y, ty], 'r--', alpha=0.3, linewidth=1)
         
@@ -180,8 +178,7 @@ class AreaProtectionGUI:
         self.ax.plot([], [], 'bo', markersize=10, label=f'Defenders ({len(self.simulation.defenders)})')
         self.ax.plot([], [], 'o', color='gold', markersize=10, label=f'Targets ({len(self.simulation.targets)})')
         self.ax.plot([], [], 's', color='black', markersize=10, label='Obstacles')
-        self.ax.legend(loc='upper left', bbox_to_anchor=(0, 1.15), ncol=4)
-        
+        self.ax.legend(loc='upper left', bbox_to_anchor=(-0.4, 1.15), ncol=4, fontsize='small')
         self.canvas.draw()
         self.update_statistics()
         
@@ -309,8 +306,8 @@ class AreaProtectionGUI:
         self.is_running = False
         
         # Store initial positions
-        attacker_positions = [a.position for a in self.simulation.attackers]
-        defender_positions = [d.position for d in self.simulation.defenders]
+        attacker_positions = self.simulation.initial_positions_attackers.values()
+        defender_positions = self.simulation.initial_positions_defenders.values()
         targets = self.simulation.targets.copy()
         
         # Reset simulation
@@ -382,7 +379,7 @@ class AreaProtectionGUI:
 def main():
     """Main entry point"""
     root = tk.Tk()
-    app = AreaProtectionGUI(root)
+    _ = AreaProtectionGUI(root)
     root.mainloop()
 
 

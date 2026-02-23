@@ -90,23 +90,38 @@ def run_comparison():
         # Create fresh scenario
         grid, sim = create_corridor_scenario()
         sim.set_strategy(strategy)
-        sim.initialize()
+
+        print(f"\n{'='*60}")
+        print(f"Testing: {name} Strategy")
+        print('='*60)
+
+        if name == 'Bottleneck':
+            # Manually trigger allocation with debug
+            sim.initialize()
+            # Re-do allocation with debug=True to show what's happening
+            allocation = BottleneckAllocation.allocate(
+                sim.grid, sim.defenders, sim.targets, sim.attackers, debug=True
+            )
+        else:
+            sim.initialize()
         
-        # Run simulation
-        while sim.step():
-            pass
+       # Run simulation
+        step_count = 0
+        while sim.step() and step_count < sim.max_steps:
+            step_count += 1
         
         stats = sim.get_statistics()
         results[name] = stats
         
         print(f"\n{name} Strategy:")
+        print(f"  Time steps: {stats['time_step']}")
         print(f"  Attackers at target: {stats['targets_captured']}/{stats['total_attackers']}")
         print(f"  Defenders at target: {stats['targets_protected']}/{stats['total_defenders']}")
-        print(f"  Success rate: {(1 - stats['targets_captured']/max(1, len(sim.targets))) * 100:.1f}%")
-    
+        print(f"  Defense success rate: {(stats['targets_protected']/max(1, len(sim.targets)) * 100):.1f}%")
+
     print("\n" + "=" * 60)
-    print("WINNER:", max(results.items(), 
-                         key=lambda x: x[1]['targets_protected'])[0])
+    best_strategy = max(results.items(), key=lambda x: x[1]['targets_protected'])
+    print(f"BEST DEFENSE: {best_strategy[0]} (protected {best_strategy[1]['targets_protected']} targets)")
     print("=" * 60)
     
     return results
@@ -162,13 +177,23 @@ def detailed_simulation_run():
     
     grid, sim = create_corridor_scenario()
     sim.set_strategy(BottleneckAllocation())
-    sim.initialize()
-    
+
     print(f"\nSetup:")
     print(f"  Attackers: {len(sim.attackers)}")
     print(f"  Defenders: {len(sim.defenders)}")
     print(f"  Targets: {len(sim.targets)}")
     print(f"  Strategy: Bottleneck Simulation")
+    
+    # Initialize with debug output
+    print(f"\nInitializing...")
+    allocation = BottleneckAllocation.allocate(
+        sim.grid, sim.defenders, sim.targets, sim.attackers, debug=True
+    )
+
+    # Apply allocation
+    for defender in sim.defenders:
+        if defender.id in allocation:
+            defender.set_target(allocation[defender.id])
     
     # Show initial allocations
     print(f"\nDefender Allocations:")
@@ -184,7 +209,8 @@ def detailed_simulation_run():
     while sim.step():
         if step % 20 == 0:  # Print every 20 steps
             stats = sim.get_statistics()
-            print(f"{step:<6} {stats['targets_captured']:<20} {stats['targets_protected']:<20}")
+            print(f"{step:<6} {stats['targets_captured']:<10} "
+                  f"{stats['targets_protected']:<10} {stats['targets_empty']:<10}")
         step += 1
     
     # Final results
@@ -193,10 +219,11 @@ def detailed_simulation_run():
     print(f"\nFinal Results (Step {final_stats['time_step']}):")
     print(f"  Targets captured: {final_stats['targets_captured']}")
     print(f"  Targets protected: {final_stats['targets_protected']}")
-    print(f"  Success rate: {(1 - final_stats['targets_captured']/ max(1, len(sim.targets))) * 100:.1f}%")
+    print(f"  Targets empty: {final_stats['targets_empty']}")
+    print(f"  Success rate: {(final_stats['targets_protected']/len(sim.targets)) * 100:.1f}%")
     
     # Visualize final state
-    fig = visualize_scenario(grid, sim, "Final State - Bottleneck Strategy")
+    _ = visualize_scenario(grid, sim, "Final State - Bottleneck Strategy")
     plt.show()
 
 
@@ -244,7 +271,8 @@ def test_different_ratios():
             
             print(f"  {strategy_name:12} - Success: {success:5.1f}% "
                   f"(Protected: {stats['targets_protected']}, "
-                  f"Captured: {stats['targets_captured']})")
+                  f"Captured: {stats['targets_captured']}, "
+                  f"Empty: {stats['targets_empty']})")
 
 
 if __name__ == "__main__":
