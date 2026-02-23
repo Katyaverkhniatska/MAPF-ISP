@@ -32,6 +32,7 @@ class AreaProtectionGUI:
         # GUI state
         self.mode = tk.StringVar(value="obstacle")  # obstacle, attacker, defender, target
         self.is_running = False
+        self.was_initialized = False
         self.animation_speed = 200  # ms
         
         # Create UI
@@ -241,25 +242,31 @@ class AreaProtectionGUI:
     
     def start_simulation(self):
         """Start the simulation"""
-        if len(self.simulation.attackers) == 0:
-            messagebox.showwarning("No Attackers", "Please add at least one attacker!")
+        if (self.is_running):
             return
+
+        if not self.was_initialized:
+            if len(self.simulation.attackers) == 0:
+                messagebox.showwarning("No Attackers", "Please add at least one attacker!")
+                return
+            
+            if len(self.simulation.targets) == 0:
+                messagebox.showwarning("No Targets", "Please add at least one target!")
+                return
+            
+            # Set strategy
+            strategy_map = {
+                'random': RandomAllocation(),
+                'greedy': GreedyAllocation(),
+                'bottleneck': BottleneckAllocation()
+            }
+            self.simulation.set_strategy(strategy_map[self.strategy_var.get()])
         
-        if len(self.simulation.targets) == 0:
-            messagebox.showwarning("No Targets", "Please add at least one target!")
-            return
+            # Initialize simulation
+            self.simulation.initialize()
         
-        # Set strategy
-        strategy_map = {
-            'random': RandomAllocation(),
-            'greedy': GreedyAllocation(),
-            'bottleneck': BottleneckAllocation()
-        }
-        self.simulation.set_strategy(strategy_map[self.strategy_var.get()])
-        
-        # Initialize simulation
-        self.simulation.initialize()
         self.is_running = True
+        self.was_initialized = True
         self.draw_grid()
         self.run_animation()
     
@@ -304,6 +311,7 @@ class AreaProtectionGUI:
     def reset_simulation(self):
         """Reset simulation to initial positions"""
         self.is_running = False
+        self.was_initialized = False
         
         # Store initial positions
         attacker_positions = self.simulation.initial_positions_attackers.values()
@@ -339,7 +347,7 @@ class AreaProtectionGUI:
         
         # Calculate success rate
         if stats['total_targets'] > 0:
-            success_rate = (stats['targets_protected'] / stats['total_targets']) * 100
+            success_rate = ((stats['targets_protected'] + stats['targets_empty']) / stats['total_targets']) * 100
         else:
             success_rate = 0.0
         

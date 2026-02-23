@@ -117,11 +117,11 @@ def run_comparison():
         print(f"  Time steps: {stats['time_step']}")
         print(f"  Attackers at target: {stats['targets_captured']}/{stats['total_attackers']}")
         print(f"  Defenders at target: {stats['targets_protected']}/{stats['total_defenders']}")
-        print(f"  Defense success rate: {(stats['targets_protected']/max(1, len(sim.targets)) * 100):.1f}%")
+        print(f"  Defense success rate: {((stats['targets_protected'] + stats['targets_empty'])/max(1, len(sim.targets)) * 100):.1f}%")
 
     print("\n" + "=" * 60)
-    best_strategy = max(results.items(), key=lambda x: x[1]['targets_protected'])
-    print(f"BEST DEFENSE: {best_strategy[0]} (protected {best_strategy[1]['targets_protected']} targets)")
+    best_strategy = max(results.items(), key=lambda x: x[1]['targets_protected'] + x[1]['targets_empty'])
+    print(f"BEST DEFENSE: {best_strategy[0]} (protected {best_strategy[1]['targets_protected']} targets, empty {best_strategy[1]['targets_empty']})")
     print("=" * 60)
     
     return results
@@ -220,7 +220,7 @@ def detailed_simulation_run():
     print(f"  Targets captured: {final_stats['targets_captured']}")
     print(f"  Targets protected: {final_stats['targets_protected']}")
     print(f"  Targets empty: {final_stats['targets_empty']}")
-    print(f"  Success rate: {(final_stats['targets_protected']/len(sim.targets)) * 100:.1f}%")
+    print(f"  Success rate: {((final_stats['targets_protected']+final_stats['targets_empty'])/len(sim.targets)) * 100:.1f}%")
     
     # Visualize final state
     _ = visualize_scenario(grid, sim, "Final State - Bottleneck Strategy")
@@ -267,7 +267,7 @@ def test_different_ratios():
                 pass
             
             stats = sim.get_statistics()
-            success = (1 - stats['targets_captured']/len(sim.targets)) * 100
+            success = ((stats['targets_protected'] + stats['targets_empty']) / max(1, len(sim.targets))) * 100
             
             print(f"  {strategy_name:12} - Success: {success:5.1f}% "
                   f"(Protected: {stats['targets_protected']}, "
