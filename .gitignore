@@ -20,4 +20,4 @@ dist/
 .installed.cfg
 *.egg
 /tests.py
-/area_protection_system.py
+old_implementation/
