@@ -19,3 +19,5 @@ dist/
 *.egg-info/
 .installed.cfg
 *.egg
+/tests.py
+/area_protection_system.py
