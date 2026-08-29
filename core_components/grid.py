@@ -1,4 +1,4 @@
-from visualization.grid_availability import GridAvailability
+from core_components.grid_availability import GridAvailability
 
 #TODO: Work on proper error handling for out of bounds and invalid coordinates
 

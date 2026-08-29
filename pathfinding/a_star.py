@@ -1,4 +1,4 @@
-from visualization.grid import Grid
+from core_components.grid import Grid
 import heapq
 
 class AStar:

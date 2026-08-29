@@ -19,5 +19,4 @@ dist/
 *.egg-info/
 .installed.cfg
 *.egg
-/tests.py
 old_implementation/
