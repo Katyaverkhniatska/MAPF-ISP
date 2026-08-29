@@ -19,7 +19,7 @@ MAP-ISP/
 │   └── grid_availability.py     # GridAvailability enum (PASSABLE, OBSTACLE, TAKEN)
 │
 ├── allocation_strategies/
-│   ├── __init__.py              # Base AllocationStrategy class (to be implemented)
+│   ├── allocation_strategy.py   # Base AllocationStrategy class (to be implemented)
 │   ├── random_strategy.py       # Random allocation (to be implemented)
 │   ├── greedy_strategy.py       # Greedy allocation (to be implemented)
 │   └── bottleneck_strategy.py   # Bottleneck allocation (to be implemented)

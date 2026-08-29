@@ -1,4 +1,7 @@
 import unittest
+from allocation_strategies.random_strategy import RandomStrategy
+from core_components.agent import Agent
+from core_components.agent_type import AgentType
 from core_components.grid import Grid
 from pathfinding.path_finder import PathFinder
 
@@ -92,6 +95,52 @@ class TestPathFinder(unittest.TestCase):
         with self.assertRaises(ValueError):
             pathfinder.find_path((2, 2), (10, 10))
 
+
+class TestRandomStrategy(unittest.TestCase):
+    
+    def test_all_defenders_assigned(self):
+        """Every defender gets a target"""
+        grid = Grid(10, 10, obstacles=[])
+        defenders = [Agent(0, 0, AgentType.DEFENDER), Agent(1, 0, AgentType.DEFENDER)]
+        targets = [(5, 5), (6, 6), (7, 7)]
+        attackers = []
+
+        strategy = RandomStrategy()
+        result = strategy.allocate(grid, defenders, targets, attackers)
+
+        self.assertEqual(len(result), len(defenders))
+        for defender in defenders:
+            self.assertIn(defender, result)
+            self.assertIn(result[defender], targets)
+
+    def test_more_defenders_than_targets(self):
+        """Defenders share targets when outnumbered"""
+        grid = Grid(10, 10, obstacles=[])
+        defenders = [Agent(i, 0, AgentType.DEFENDER) for i in range(5)]
+        targets = [(5, 5), (6, 6)]
+        attackers = []
+
+        strategy = RandomStrategy()
+        result = strategy.allocate(grid, defenders, targets, attackers)
+
+        self.assertEqual(len(result), 5)
+        for defender in defenders:
+            self.assertIn(result[defender], targets)
+
+    def test_empty_defenders(self):
+        """Returns empty dict when no defenders"""
+        grid = Grid(10, 10, obstacles=[])
+        strategy = RandomStrategy()
+        result = strategy.allocate(grid, [], [(5, 5)], [])
+        self.assertEqual(result, {})
+
+    def test_empty_targets(self):
+        """Returns empty dict when no targets"""
+        grid = Grid(10, 10, obstacles=[])
+        defenders = [Agent(0, 0, AgentType.DEFENDER)]
+        strategy = RandomStrategy()
+        result = strategy.allocate(grid, defenders, [], [])
+        self.assertEqual(result, {})
 
 if __name__ == "__main__":
     unittest.main()
