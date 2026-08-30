@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from core_components.agent import Agent
-from core_components.grid import Grid
+from core_components.grid import Grid, Vertex
 
 
 class AllocationStrategy(ABC):
@@ -15,9 +15,9 @@ class AllocationStrategy(ABC):
         self,
         grid: Grid,
         defenders: list[Agent],
-        targets: list[tuple[int, int]],
+        targets: list[Vertex],
         attackers: list[Agent]
-    ) -> dict[Agent, tuple[int, int]]:
+    ) -> dict[Agent, Vertex]:
         """
         Assign each defender a target position to move towards.
 

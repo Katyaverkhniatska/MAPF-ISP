@@ -1,8 +1,8 @@
-from core_components.grid import Grid
+from core_components.grid import Grid, Vertex
 import heapq
 
 class AStar:
-    def __init__(self, start : tuple, goal : tuple, grid : Grid):
+    def __init__(self, start : Vertex, goal : Vertex, grid : Grid):
         self.grid = grid
         if not self.grid.is_passable(start) or not self.grid.is_passable(goal):
             raise ValueError("Start or goal position is invalid or out of bounds.")
@@ -13,7 +13,7 @@ class AStar:
         self.open_set = []
         # The closed set is a matrix where cell (i, j) has value True if 
         # the node (i, j) has been evaluated, False otherwise
-        self.closed_set = [[False for _ in range(grid.width)] for _ in range(grid.height)]
+        self.closed_set = set()
         heapq.heappush(self.open_set, (self.heuristic(start, goal), start))
 
         # Cost from start to each node
@@ -40,12 +40,12 @@ class AStar:
                 return self.reconstruct_path(came_from, least_f_node)
 
             # Mark this cell as evaluated
-            self.closed_set[least_f_node[0]][least_f_node[1]] = True
+            self.closed_set.add(least_f_node)
 
             neighbors = self.grid.get_neighbors(least_f_node)
 
             for neighbor in neighbors:
-                if self.closed_set[neighbor[0]][neighbor[1]]:
+                if neighbor in self.closed_set:
                     continue
 
                 if not self.grid.is_passable(neighbor):

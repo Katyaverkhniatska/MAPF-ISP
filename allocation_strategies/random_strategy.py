@@ -1,7 +1,7 @@
 import random
 from allocation_strategies.allocation_strategy import AllocationStrategy
 from core_components.agent import Agent
-from core_components.grid import Grid
+from core_components.grid import Grid, Vertex
 
 
 class RandomStrategy(AllocationStrategy):
@@ -14,9 +14,9 @@ class RandomStrategy(AllocationStrategy):
         self,
         grid: Grid,
         defenders: list[Agent],
-        targets: list[tuple[int, int]],
+        targets: list[Vertex],
         attackers: list[Agent]
-    ) -> dict[Agent, tuple[int, int]]:
+    ) -> dict[Agent, Vertex]:
         """
         Randomly shuffles targets and assigns one to each defender.
 

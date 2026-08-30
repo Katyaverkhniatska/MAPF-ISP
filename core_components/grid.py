@@ -1,9 +1,12 @@
 from core_components.grid_availability import GridAvailability
+from typing import Tuple
 
 #TODO: Work on proper error handling for out of bounds and invalid coordinates
 
+Vertex = Tuple[int, int]
+
 class Grid:
-    def __init__(self, width, height, obstacles : list[tuple[int, int]]):
+    def __init__(self, width, height, obstacles : list[Vertex]):
         self.width = width
         self.height = height
         self.obstacles = obstacles
@@ -18,7 +21,7 @@ class Grid:
             if 0 <= x < self.width and 0 <= y < self.height:
                 self.grid[y][x] = GridAvailability.OBSTACLE
 
-    def mark_taken(self, position : tuple[int, int]):
+    def mark_taken(self, position : Vertex):
         """
         Marks a cell as taken (occupied) on the grid.
         """
@@ -26,7 +29,7 @@ class Grid:
         if 0 <= x < self.width and 0 <= y < self.height:
             self.grid[y][x] = GridAvailability.TAKEN
 
-    def is_passable(self, position : tuple[int, int]) -> bool:
+    def is_passable(self, position : Vertex) -> bool:
         """
         Returns True if a cell is empty and within the grid boundaries, otherwise returns False
         """
@@ -35,7 +38,7 @@ class Grid:
             return self.grid[y][x] == GridAvailability.PASSABLE
         return False
 
-    def get_neighbors(self, position : tuple[int, int]) -> list[tuple[int, int]]:
+    def get_neighbors(self, position : Vertex) -> list[Vertex]:
         """
         Returns valid adjacent cells (up/down/left/right)
         """

@@ -1,11 +1,12 @@
 from pathfinding.a_star import AStar
+from core_components.grid import Grid, Vertex
 from typing import Optional, List, Tuple
 
 class PathFinder:
-    def __init__(self, grid):
+    def __init__(self, grid: Grid):
         self.grid = grid
 
-    def find_path(self, start: Tuple[int, int], goal: Tuple[int, int]) -> Optional[List[Tuple[int, int]]]:
+    def find_path(self, start: Vertex, goal: Vertex) -> Optional[List[Vertex]]:
         """
         Find a path from start to goal using A* algorithm.
         
