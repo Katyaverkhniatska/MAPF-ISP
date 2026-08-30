@@ -9,7 +9,7 @@ A Python-based interactive visualization and comparison tool for exploring defen
 ---
 
 ## Project Structure
-
+ 
 ```
 MAP-ISP/
 ├── core_components/
@@ -19,10 +19,10 @@ MAP-ISP/
 │   └── grid_availability.py     # GridAvailability enum (PASSABLE, OBSTACLE, TAKEN)
 │
 ├── allocation_strategies/
-│   ├── allocation_strategy.py   # Base AllocationStrategy class (to be implemented)
-│   ├── random_strategy.py       # Random allocation (to be implemented)
-│   ├── greedy_strategy.py       # Greedy allocation (to be implemented)
-│   └── bottleneck_strategy.py   # Bottleneck allocation (to be implemented)
+│   ├── allocation_strategy.py   # Base AllocationStrategy class
+│   ├── random_strategy.py       # Random allocation
+│   ├── greedy_strategy.py       # Greedy allocation
+│   └── bottleneck_strategy.py   # Bottleneck simulation allocation
 │
 ├── simulation_engine/
 │   ├── simulation.py            # Main Simulation orchestrator (to be implemented)
@@ -48,17 +48,15 @@ MAP-ISP/
 ## Features Implemented
 
 ### ✅ Phase 1: Core Components (In Progress)
-
+ 
 - **Grid System** — 2D grid with obstacle tracking, passability queries, and neighbor lookups
   - Bounds checking on all operations
   - `GridAvailability` enum for cell states (PASSABLE, OBSTACLE, TAKEN)
   - Methods: `is_passable()`, `get_neighbors()`, `mark_obstacles()`, `mark_taken()`, `get_grid_state()`
-
 - **Agent System** — Foundation for attackers and defenders
   - `Agent` class with position tracking and movement methods
   - `AgentType` enum to distinguish ATTACKER from DEFENDER
   - Methods: `move()`, `move_to()`
-
 - **Pathfinding (A\* Algorithm)** — Collision-aware route planning
   - Complete A* implementation with Manhattan distance heuristic
   - Handles obstacles and grid boundaries
@@ -69,31 +67,32 @@ MAP-ISP/
 ### ✅ Testing Infrastructure
 - Unit tests for Grid class (bounds checking, obstacles, passability)
 - Unit tests for PathFinder (straight paths, obstacle avoidance, edge cases, unreachable goals)
+- Unit tests for RandomStrategy, GreedyStrategy, and BottleneckStrategy
 - All tests passing
 
-### Phase 2: Allocation Strategies (Next)
-
-To implement:
-- `AllocationStrategy` — Abstract base class defining the interface
-- `RandomStrategy` — Arbitrarily assign targets to defenders
-- `GreedyStrategy` — Assign each defender to closest available target
-- `BottleneckStrategy` — Identify critical chokepoints and position defenders there
+### ✅ Phase 2: Allocation Strategies
+ 
+- `AllocationStrategy` — Abstract base class defining the interface all strategies implement
+- `RandomStrategy` — Assigns each defender to a random attacker target
+- `GreedyStrategy` — Assigns each defender to its closest available target
+- `BottleneckStrategy` — Simulates attacker paths to find high-traffic vertices, searches their
+  vicinity for gaps between obstacle groups, and blocks those gaps with defenders; falls back to
+  random assignment for any leftover defenders. Based on the "Bottleneck Simulation Allocation"
+  method (section 4.3 of the reference paper, Ivanová & Surynek 2017).
 
 ---
-
+ 
 ## What's Next
 
 ### Immediate (This Week)
-1. **Extend Agent Class** — Add target assignment, health state, and `compute_next_move()` method
-2. **Implement AllocationStrategy Base Class** — Define interface that all strategies must implement
-3. **Implement Random Strategy** — Simplest strategy; unlocks end-to-end testing
-4. **Create Step Snapshot Data Class** — Holds grid state + statistics for each simulation step
+1. **Extend Agent Class** — Add target assignment, (health state), and `compute_next_move()` method
+2. **Create Step Snapshot Data Class** — Holds grid state + statistics for each simulation step
+3. Build Simulation class — orchestrates agent movement, strategy application, snapshot collection
 
 ### Short Term (Next 1-2 Weeks)
-5. Implement Greedy and Bottleneck strategies
-6. Build Simulation class — orchestrates agent movement, strategy application, snapshot collection
-7. Implement Statistics Calculator — derives metrics from snapshots
-8. Build scenario loader for JSON/CSV input validation
+4. More testing on Bottleneck strategy
+5. Implement Statistics Calculator — derives metrics from snapshots
+6. Build scenario loader for JSON/CSV input validation
 
 ### Medium Term (Weeks 3-4)
 9. Develop Tkinter GUI:
@@ -150,12 +149,31 @@ python main.py
 - Unit tests for each component
 - Edge cases tested: boundaries, no path, start == goal, obstacles at start/goal
 - Tests are clear and self-documenting
+- Allocation strategy tests mock internal simulation/search steps where needed to keep
+  behavior deterministic (pathfinding tie-breaks and set-iteration order are not
+  guaranteed to be stable across runs)
+
+### BottleneckStrategy notes (mostly for myself)
+- Agent movement stays 4-connected throughout, matching the paper's grid model
+  (section 2). Obstacle grouping in `_connected_components`/`touches_other_component`
+  uses 8-connectivity, per the paper's footnote that two cells are "in distance 1"
+  if they share at least one point — these are two intentionally different
+  connectivity rules for two different purposes, not an inconsistency.
+- **Resolved during testing:** the BFS in `_shortest_gap_between_components` used to
+  return whichever candidate gap vertex was dequeued first, which is arbitrary when
+  several vertices are equidistant from the obstacle groups (an 8-connectivity touch
+  check can tie a "directly between the obstacles" vertex with a diagonal neighbor).
+  Ties are now broken by proximity to `w` (the frequency hotspot that triggered the
+  vicinity search), which is deterministic and consistent with the paper's own
+  reasoning for using proximity as a selection criterion.
+- The paper's optional refinement — re-simulating with a found bottleneck excluded to
+  rule out "false" bottlenecks in indented/blind-alley maps — is not yet implemented.
 
 ### Known TODOs
 - Full error handling for edge cases in `Simulation` class (coming in Phase 3)
 - GUI optimization for large grids (Phase 4)
 - Performance profiling for 100+ step simulations (Phase 5)
-
+- Optional false-bottleneck filtering for `BottleneckStrategy` (see notes above)
 ---
 
 ## Progress Tracking
@@ -163,14 +181,17 @@ python main.py
 | Component | Status | Tests | Notes |
 |-----------|--------|-------|-------|
 | Grid | ✅ Complete | ✅ Passing | Fully functional with bounds checking |
-| Agent | ✅ Complete | ✅ Passing | Basic structure; will extend with target assignment |
+| Agent | ✅ Complete | ✅ Passing | Basic structure; will extend with health state |
 | PathFinder (A*) | ✅ Complete | ✅ All 10 passing | Production-ready |
-| AllocationStrategy | ⏳ In Progress | — | Base class design complete; implementations pending |
+| AllocationStrategy (base) | ✅ Complete | — | Interface implemented |
+| RandomStrategy | ✅ Complete | ✅ Passing | |
+| GreedyStrategy | ✅ Complete | ✅ Passing | |
+| BottleneckStrategy | ✅ Complete | ✅ Passing | Tie-break fix applied (see Development Notes) |
 | Simulation Engine | ⏳ Planned | — | Depends on strategies |
 | Tkinter GUI | ⏳ Planned | — | Phase 4 |
 | Scenario Loader | ⏳ Planned | — | Phase 3 |
 | Statistics Calculator | ⏳ Planned | — | Phase 3 |
 
 ---
-
-*Last updated: [23.06.26] — Phase 1 (Core Components) nearing completion*
+ 
+*Last updated: [31.08.26] — Phase 2 (Allocation Strategies) complete*
