@@ -1,2 +1,12 @@
-numpy>=1.21.0
-matplotlib>=3.5.0
+# MAPF-ISP Requirements
+# This project uses only Python standard library.
+# No external dependencies are required for core functionality.
+#
+# Standard library modules used:
+# - unittest (testing framework)
+# - collections (deque for BFS in bottleneck strategy)
+# - typing (type hints for Vertex, Dict, List, Set)
+#
+# Future dependencies (when adding GUI and beyond):
+# - tkinter (included with Python on most systems, for visualization)
+# - Any additional libraries will be added here as needed

@@ -1,0 +1,9 @@
+# Comments are provided throughout this file to help you get started.
+# If you need more help, visit the Docker Compose reference guide at
+# https://docs.docker.com/go/compose-spec-reference/
+
+services:
+  mapf-isp:
+    build:
+      context: .
+    # No ports needed for a CLI/test application

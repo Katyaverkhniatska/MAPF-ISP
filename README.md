@@ -40,7 +40,10 @@ MAP-ISP/
 ├── main.py                      # Application entry point (to be implemented)
 ├── requirements.txt             # Python dependencies
 ├── README.md                    # This file
+├── Dockerfile
+├── dockerignore
 └── .gitignore                   # Git ignore rules
+
 ```
 
 ---
@@ -110,7 +113,7 @@ MAP-ISP/
 
 ## Technology Stack
 
-- **Backend**: Python 3.9+ (standard library only)
+- **Backend**: Python 3.11+ (standard library only)
 - **Frontend**: Tkinter (included with Python)
 - **Testing**: Python unittest
 - **Version Control**: Git
@@ -118,16 +121,40 @@ MAP-ISP/
 ---
 
 ## Running the Project
-
-### Current State
+ 
+### Local Setup
 The core components are functional. You can test individual pieces:
-
+ 
 ```bash
 # Run tests
-python tests.py
-
+python -m unittest discover -s . -p tests.py -v
+ 
 # Test pathfinding interactively
 python path_finder.py  # (if you add a __main__ block)
+```
+ 
+### Docker Setup
+A Dockerfile is provided for containerized execution. This ensures consistent Python version and environment across machines.
+ 
+**Build the image:**
+```bash
+docker build -t mapf-isp .
+```
+ 
+**Run tests in container:**
+```bash
+docker run --rm mapf-isp
+```
+ 
+**Interactive shell inside container (for development/debugging):**
+```bash
+docker run --rm -it mapf-isp /bin/bash
+```
+ 
+Then inside the container:
+```bash
+python -m unittest discover -s . -p tests.py -v
+python main.py  # (future: once GUI is complete)
 ```
 
 ### Future: Complete Application
