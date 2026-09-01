@@ -134,22 +134,10 @@ python path_finder.py  # (if you add a __main__ block)
 ```
  
 ### Docker Setup
-A Dockerfile is provided for containerized execution. This ensures consistent Python version and environment across machines.
- 
-**Build the image:**
-```bash
-docker build -t mapf-isp .
-```
- 
-**Run tests in container:**
-```bash
-docker run --rm mapf-isp
-```
- 
-**Interactive shell inside container (for development/debugging):**
-```bash
-docker run --rm -it mapf-isp /bin/bash
-```
+
+For containerized development and testing, see [README_Docker.md](README_Docker.md).
+
+Quick start: `docker compose up --build`
  
 Then inside the container:
 ```bash
