@@ -36,7 +36,7 @@ class GreedyStrategy(AllocationStrategy):
             if available_targets:
                 closest = min(
                     available_targets,
-                    key=lambda t: math.dist((defender.x, defender.y), t)
+                    key=lambda t: math.dist(defender.get_position(), t)
                 )
                 assignment[defender] = closest
                 available_targets.remove(closest)
@@ -44,7 +44,7 @@ class GreedyStrategy(AllocationStrategy):
                 # More defenders than targets — assign closest from all targets
                 assignment[defender] = min(
                     targets,
-                    key=lambda t: math.dist((defender.x, defender.y), t)
+                    key=lambda t: math.dist(defender.get_position(), t)
                 )
 
         return assignment

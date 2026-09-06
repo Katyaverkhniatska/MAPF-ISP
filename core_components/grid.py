@@ -6,36 +6,69 @@ from typing import Tuple
 Vertex = Tuple[int, int]
 
 class Grid:
+    __width: int
+    __height: int
+    __obstacles: list[Vertex]
+    
     def __init__(self, width, height, obstacles : list[Vertex]):
-        self.width = width
-        self.height = height
-        self.obstacles = obstacles
-        self.grid = [[GridAvailability.PASSABLE for _ in range(width)] for _ in range(height)]
+        self.__width = width
+        self.__height = height
+        self.__obstacles = obstacles
+        self.__grid = [[GridAvailability.PASSABLE for _ in range(width)] for _ in range(height)]
         self.mark_obstacles()
+
+    def get_dimensions(self) -> Tuple[int, int]:
+        return self.__width, self.__height
 
     def mark_obstacles(self):
         """
         Marks the obstacles on the grid based on the provided list of coordinates.
         """
-        for x, y in self.obstacles:
-            if 0 <= x < self.width and 0 <= y < self.height:
-                self.grid[y][x] = GridAvailability.OBSTACLE
+        for x, y in self.__obstacles:
+            if 0 <= x < self.__width and 0 <= y < self.__height:
+                self.__grid[y][x] = GridAvailability.OBSTACLE
 
     def mark_taken(self, position : Vertex):
         """
         Marks a cell as taken (occupied) on the grid.
         """
         x, y = position
-        if 0 <= x < self.width and 0 <= y < self.height:
-            self.grid[y][x] = GridAvailability.TAKEN
+        if 0 <= x < self.__width and 0 <= y < self.__height:
+            self.__grid[y][x] = GridAvailability.TAKEN
+
+    def unmark_taken(self, position : Vertex):
+        """
+        Unmarks a cell as taken (occupied) on the grid, making it passable again.
+        """
+        x, y = position
+        if 0 <= x < self.__width and 0 <= y < self.__height:
+            self.__grid[y][x] = GridAvailability.PASSABLE
 
     def is_passable(self, position : Vertex) -> bool:
         """
         Returns True if a cell is empty and within the grid boundaries, otherwise returns False
         """
         x, y = position
-        if 0 <= x < self.width and 0 <= y < self.height:
-            return self.grid[y][x] == GridAvailability.PASSABLE
+        if 0 <= x < self.__width and 0 <= y < self.__height:
+            return self.__grid[y][x] == GridAvailability.PASSABLE
+        return False
+
+    def is_taken(self, position : Vertex) -> bool:
+        """
+        Returns True if a cell is taken (occupied) and within the grid boundaries, otherwise returns False
+        """
+        x, y = position
+        if 0 <= x < self.__width and 0 <= y < self.__height:
+            return self.__grid[y][x] == GridAvailability.TAKEN
+        return False
+
+    def is_obstacle(self, position : Vertex) -> bool:
+        """
+        Returns True if a cell is an obstacle and within the grid boundaries, otherwise returns False
+        """
+        x, y = position
+        if 0 <= x < self.__width and 0 <= y < self.__height:
+            return self.__grid[y][x] == GridAvailability.OBSTACLE
         return False
 
     def get_neighbors(self, position : Vertex) -> list[Vertex]:
@@ -46,7 +79,7 @@ class Grid:
         neighbors = []
         for dx, dy in [(-1, 0), (0, 1), (0, -1), (1, 0)]:
             new_x, new_y = x + dx, y + dy
-            if 0 <= new_x < self.width and 0 <= new_y < self.height:
+            if 0 <= new_x < self.__width and 0 <= new_y < self.__height:
                 neighbors.append((new_x, new_y))
         return neighbors
     
@@ -54,4 +87,4 @@ class Grid:
         """
         Returns the current state of the grid as a 2D list of GridAvailability values.
         """
-        return self.grid
+        return self.__grid

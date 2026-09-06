@@ -102,7 +102,7 @@ class BottleneckStrategy(AllocationStrategy):
         try:
             paths = []
             for attacker in attackers:
-                start = (attacker.x, attacker.y)
+                start = attacker.get_position()
                 goal = getattr(attacker, "target", None)
                 if goal is None or start == goal:
                     continue
@@ -119,17 +119,17 @@ class BottleneckStrategy(AllocationStrategy):
     def _mark_forbidden(self, grid: Grid, forbidden: Set[Vertex]) -> Set[Vertex]:
         """Marks forbidden vertices as TAKEN; returns those already TAKEN before (to restore correctly)."""
         already_taken = set()
-        for x, y in forbidden:
-            if grid.grid[y][x] == GridAvailability.TAKEN:
-                already_taken.add((x, y))
+        for pos in forbidden:
+            if grid.is_taken(pos):
+                already_taken.add(pos)
             else:
-                grid.mark_taken((x, y))
+                grid.mark_taken(pos)
         return already_taken
 
     def _unmark_forbidden(self, grid: Grid, forbidden: Set[Vertex], already_taken: Set[Vertex]):
-        for x, y in forbidden:
-            if (x, y) not in already_taken:
-                grid.grid[y][x] = GridAvailability.PASSABLE
+        for pos in forbidden:
+            if pos not in already_taken:
+                grid.unmark_taken(pos)
 
     # ------------------------------------------------------------------
     # Step 2: f(v) = number of paths passing through v
@@ -160,8 +160,8 @@ class BottleneckStrategy(AllocationStrategy):
         if len(candidates) == 1:
             return candidates[0]
 
-        cx = sum(d.x for d in available_defenders) / len(available_defenders)
-        cy = sum(d.y for d in available_defenders) / len(available_defenders)
+        cx = sum(d.get_position()[0] for d in available_defenders) / len(available_defenders)
+        cy = sum(d.get_position()[1] for d in available_defenders) / len(available_defenders)
 
         def dist_to_defenders(v: Vertex) -> float:
             return (v[0] - cx) ** 2 + (v[1] - cy) ** 2
@@ -193,8 +193,9 @@ class BottleneckStrategy(AllocationStrategy):
             for y in range(cy - radius, cy + radius + 1):
                 if max(abs(x - cx), abs(y - cy)) != radius:
                     continue
-                if 0 <= x < grid.width and 0 <= y < grid.height:
-                    if grid.grid[y][x] == GridAvailability.OBSTACLE:
+                grid_width, grid_height = grid.get_dimensions()
+                if 0 <= x < grid_width and 0 <= y < grid_height:
+                    if grid.is_obstacle((x, y)):
                         fringe.add((x, y))
         return fringe
 
@@ -259,13 +260,10 @@ class BottleneckStrategy(AllocationStrategy):
         if not other_obstacles:
             return []
 
-        def passable(pos: Vertex) -> bool:
-            x, y = pos
-            if not (0 <= x < grid.width and 0 <= y < grid.height):
-                return False
-            if pos in forbidden:
-                return False
-            return grid.grid[y][x] == GridAvailability.PASSABLE
+        def passable(pos: Vertex) -> bool:    
+            if not pos in forbidden:
+                return grid.is_passable(pos)
+            return False
 
         def touches_other_component(pos: Vertex) -> bool:
             x, y = pos
