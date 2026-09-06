@@ -19,5 +19,8 @@ class Agent:
     def set_target(self, target : Vertex):
         self.__target = target
 
+    def get_target(self) -> Vertex | None:
+        return self.__target
+
     def get_position(self) -> Vertex:
         return (self.__x, self.__y)

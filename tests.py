@@ -11,8 +11,8 @@ from pathfinding.path_finder import PathFinder
 def make_attacker(x, y, target):
     """Helper: build an attacker and attach its known target.
  
-    The strategy reads `attacker.target` via getattr(), so we just set the
-    attribute directly rather than assuming a particular constructor shape.
+    Sets the attacker's real known target, used to test use_true_targets=True mode;
+    under the default guessing mode this value is intentionally ignored during path simulation.
     """
     attacker = Agent(x, y, AgentType.ATTACKER)
     attacker.set_target(target)
@@ -354,6 +354,96 @@ class TestBottleneckStrategy(unittest.TestCase):
  
         # Only the first vertex of the 2-vertex bottleneck gets claimed.
         self.assertEqual(result, {defender: (5, 5)})
+
+        # ------------------------------------------------------------------
+    # Attacker-target guessing (delta^0_A)
+    # ------------------------------------------------------------------
+    def test_simulate_attacker_paths_uses_guessed_target_not_real_one(self):
+        """Regression test: path simulation must route toward the provided
+        guess, not the attacker's real known target -- this is precisely
+        the bug that made Bottleneck degenerate into Random before
+        Agent.get_target() and the guessing step existed."""
+        grid = Grid(10, 10, obstacles=[])
+        attacker = make_attacker(0, 0, target=(9, 9))
+        strategy = BottleneckStrategy()
+        path_finder = PathFinder(grid)
+
+        guessed_targets = {attacker: (3, 3)}  # deliberately not (9, 9)
+        paths = strategy._simulate_attacker_paths(
+            grid, [attacker], guessed_targets, forbidden=set(), path_finder=path_finder
+        )
+
+        self.assertEqual(len(paths), 1)
+        self.assertEqual(paths[0][-1], (3, 3))
+        self.assertNotEqual(paths[0][-1], (9, 9))
+
+    def test_guess_attacker_targets_draws_from_target_list(self):
+        """Every guessed target must be one of the actual targets given,
+        for every attacker -- sampling is with replacement, so repeats
+        across attackers are fine."""
+        strategy = BottleneckStrategy()
+        targets = [(1, 1), (2, 2), (3, 3)]
+        attackers = [make_attacker(0, 0, target=(9, 9)) for _ in range(20)]
+
+        guesses = strategy._guess_attacker_targets(attackers, targets)
+
+        self.assertEqual(set(guesses.keys()), set(attackers))
+        for guessed in guesses.values():
+            self.assertIn(guessed, targets)
+
+    def test_guess_attacker_targets_with_no_targets_returns_empty(self):
+        """No targets to guess from -> no crash, just an empty mapping."""
+        strategy = BottleneckStrategy()
+        attacker = make_attacker(0, 0, target=(9, 9))
+
+        self.assertEqual(strategy._guess_attacker_targets([attacker], []), {})
+
+    def test_guess_computed_once_across_iterations(self):
+        """delta^0_A must be fixed for the whole allocate() call -- only
+        the *paths* toward it should change as bottlenecks accumulate in
+        `forbidden`, per Algorithm 1. If this guess were re-rolled every
+        iteration, blocking one bottleneck could make a previously-found
+        one vanish for no structural reason."""
+        grid = Grid(10, 10, obstacles=[])
+        defenders = [Agent(0, 0, AgentType.DEFENDER), Agent(1, 1, AgentType.DEFENDER)]
+        attacker = make_attacker(0, 0, target=(9, 9))
+        strategy = BottleneckStrategy()
+
+        bottleneck_sequence = [[(5, 5)], [(6, 6)]]
+
+        def fake_search_vicinity(grid_arg, w, forbidden):
+            return bottleneck_sequence.pop(0) if bottleneck_sequence else []
+
+        with patch.object(
+            strategy, "_guess_attacker_targets", return_value={attacker: (9, 9)}
+        ) as mock_guess, patch.object(
+            strategy, "_search_vicinity", side_effect=fake_search_vicinity
+        ):
+            strategy.allocate(grid, defenders, [(9, 9)], [attacker])
+
+        mock_guess.assert_called_once()
+
+    def test_use_true_targets_flag_bypasses_guessing(self):
+        """use_true_targets=True is the idealized-baseline mode: it should
+        use Agent.get_target() directly, ignoring the target list entirely
+        -- proven here by giving a target list that doesn't even contain
+        the attacker's real target."""
+        attacker = make_attacker(0, 0, target=(9, 9))
+        strategy = BottleneckStrategy(use_true_targets=True)
+
+        determined = strategy._determine_attacker_targets([attacker], targets=[(1, 1)])
+
+        self.assertEqual(determined, {attacker: (9, 9)})
+
+    def test_use_true_targets_skips_attackers_without_target(self):
+        """An attacker with no target set (get_target() is None) should be
+        excluded, matching the old goal-is-None skip behavior."""
+        attacker = Agent(0, 0, AgentType.ATTACKER)  # target never set
+        strategy = BottleneckStrategy(use_true_targets=True)
+
+        determined = strategy._determine_attacker_targets([attacker], targets=[(1, 1)])
+
+        self.assertEqual(determined, {})
 
 if __name__ == "__main__":
     unittest.main()

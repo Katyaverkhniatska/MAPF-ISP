@@ -88,7 +88,7 @@ MAP-ISP/
 ## What's Next
 
 ### Immediate (This Week)
-1. **Extend Agent Class** — Add target assignment, (health state), and `compute_next_move()` method
+1. **Extend Agent Class** — Add target assignment, and `compute_next_move()` method
 2. **Create Step Snapshot Data Class** — Holds grid state + statistics for each simulation step
 3. Build Simulation class — orchestrates agent movement, strategy application, snapshot collection
 

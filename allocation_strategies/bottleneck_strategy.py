@@ -22,14 +22,22 @@ class BottleneckStrategy(AllocationStrategy):
     bottlenecks are found; any leftover defenders are assigned to remaining
     targets at random (as in RandomStrategy).
 
-    Note on attacker targets: the paper's Algorithm 1 makes a random guess
-    at each attacker's intended target (delta^0). Here we use each attacker's
-    *actual* known target instead, since the simulation already tracks it —
-    this is a simplification agreed on for this project, not a paper-accuracy
-    trade-off that changes the structure of the algorithm.
+    Attacker targets: per Algorithm 1, defenders don't know attackers'
+    true intended targets. A guess δ⁰_A is made once per allocate()
+    call — one random target per attacker, drawn from the known target
+    set — and every path simulation in the while-loop below is run
+    against that fixed guess. Only the *paths* change between
+    iterations, as newly-forbidden bottleneck vertices force re-routing.
+
+    Set use_true_targets=True to bypass the guess and use each
+    attacker's actual known target instead (useful as an idealized
+    baseline for comparison, not paper-accurate).
     """
 
     MAX_VICINITY_RADIUS = 6  # expanding-square search limit around w
+
+    def __init__(self, use_true_targets: bool = False):
+        self.use_true_targets = use_true_targets
 
     def allocate(
         self,
@@ -45,8 +53,13 @@ class BottleneckStrategy(AllocationStrategy):
         forbidden: Set[Vertex] = set()
         assignment: Dict[Agent, Vertex] = {}
 
+        # δ⁰_A — fixed for the rest of this call, per Algorithm 1.
+        guessed_targets = self._determine_attacker_targets(attackers, targets)
+
         while available_defenders:
-            paths = self._simulate_attacker_paths(grid, attackers, forbidden, path_finder)
+            paths = self._simulate_attacker_paths(
+                grid, attackers, guessed_targets, forbidden, path_finder
+            )
             if not paths:
                 # No attacker has a viable path at all; nothing left to exploit.
                 break
@@ -83,12 +96,43 @@ class BottleneckStrategy(AllocationStrategy):
         return assignment
 
     # ------------------------------------------------------------------
-    # Step 1: simulate shortest paths of attackers to their targets
+    # Step 0: guess attacker targets (δ⁰_A)
     # ------------------------------------------------------------------
+
+    def _determine_attacker_targets(
+        self, attackers: List[Agent], targets: List[Vertex]
+    ) -> Dict[Agent, Vertex]:
+        if self.use_true_targets:
+            return {
+                a: target
+                for a in attackers 
+                if (target := a.get_target()) is not None
+            }
+        return self._guess_attacker_targets(attackers, targets)
+
+    def _guess_attacker_targets(
+        self, attackers: List[Agent], targets: List[Vertex]
+    ) -> Dict[Agent, Vertex]:
+        """
+        δ⁰_A: random guess of each attacker's intended target, made
+        once per allocate() call. Sampled with replacement — several
+        attackers may plausibly be guessed as heading for the same
+        target.
+        """
+        if not targets:
+            return {}
+        return {attacker: random.choice(targets) for attacker in attackers}
+
+    # ------------------------------------------------------------------
+    # Step 1: simulate shortest paths of attackers to their targets
+    # ------------------------------------------------------------------ 
+    
+    
     def _simulate_attacker_paths(
         self,
         grid: Grid,
         attackers: List[Agent],
+        guessed_targets: Dict[Agent, Vertex],
         forbidden: Set[Vertex],
         path_finder: PathFinder,
     ) -> List[List[Vertex]]:
@@ -103,13 +147,14 @@ class BottleneckStrategy(AllocationStrategy):
             paths = []
             for attacker in attackers:
                 start = attacker.get_position()
-                goal = getattr(attacker, "target", None)
+                goal = guessed_targets.get(attacker)
                 if goal is None or start == goal:
                     continue
                 try:
                     path = path_finder.find_path(start, goal)
                 except ValueError:
                     path = None
+                
                 if path:
                     paths.append(path)
             return paths
