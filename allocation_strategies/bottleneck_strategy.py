@@ -22,14 +22,23 @@ class BottleneckStrategy(AllocationStrategy):
     bottlenecks are found; any leftover defenders are assigned to remaining
     targets at random (as in RandomStrategy).
 
-    Note on attacker targets: the paper's Algorithm 1 makes a random guess
-    at each attacker's intended target (delta^0). Here we use each attacker's
-    *actual* known target instead, since the simulation already tracks it —
-    this is a simplification agreed on for this project, not a paper-accuracy
-    trade-off that changes the structure of the algorithm.
+    Attacker targets: per Algorithm 1, defenders don't know attackers'
+    true intended targets. A guess δ⁰_A is made once per allocate()
+    call — one random target per attacker, drawn from the known target
+    set — and every path simulation in the while-loop below is run
+    against that fixed guess. Only the *paths* change between
+    iterations, as newly-forbidden bottleneck vertices force re-routing.
+
+    Set use_true_targets=True to bypass the guess and use each
+    attacker's actual known target instead (useful as an idealized
+    baseline for comparison, not paper-accurate).
     """
 
     MAX_VICINITY_RADIUS = 6  # expanding-square search limit around w
+
+    def __init__(self, use_true_targets: bool = False):
+        self.use_true_targets = use_true_targets
+        self.attackers_starting_positions: Set[Vertex] = set()
 
     def allocate(
         self,
@@ -43,18 +52,31 @@ class BottleneckStrategy(AllocationStrategy):
         available_defenders: List[Agent] = list(defenders)
         available_targets: List[Vertex] = list(targets)
         forbidden: Set[Vertex] = set()
+        self.attackers_starting_positions: Set[Vertex] = {a.get_position() for a in attackers}
         assignment: Dict[Agent, Vertex] = {}
 
+        # δ⁰_A — fixed for the rest of this call, per Algorithm 1.
+        guessed_targets = self._determine_attacker_targets(attackers, targets)
+
         while available_defenders:
-            paths = self._simulate_attacker_paths(grid, attackers, forbidden, path_finder)
+            paths = self._simulate_attacker_paths(
+                grid, attackers, guessed_targets, forbidden, path_finder
+            )
             if not paths:
+                print("No paths found for attackers; all are blocked or have no targets.")
                 # No attacker has a viable path at all; nothing left to exploit.
                 break
 
             frequency = self._vertex_frequency(paths)
+            print("Vertex frequency:")
+            print(frequency)
             w = self._select_frequent_vertex(frequency, available_defenders)
+            print("The chosen vertex:")
+            print(w)
 
             bottleneck = self._search_vicinity(grid, w, forbidden)
+            print("Bottleneck:")
+            print(bottleneck)
             if not bottleneck:
                 break
 
@@ -83,12 +105,43 @@ class BottleneckStrategy(AllocationStrategy):
         return assignment
 
     # ------------------------------------------------------------------
-    # Step 1: simulate shortest paths of attackers to their targets
+    # Step 0: guess attacker targets (δ⁰_A)
     # ------------------------------------------------------------------
+
+    def _determine_attacker_targets(
+        self, attackers: List[Agent], targets: List[Vertex]
+    ) -> Dict[Agent, Vertex]:
+        if self.use_true_targets:
+            return {
+                a: target
+                for a in attackers 
+                if (target := a.get_target()) is not None
+            }
+        return self._guess_attacker_targets(attackers, targets)
+
+    def _guess_attacker_targets(
+        self, attackers: List[Agent], targets: List[Vertex]
+    ) -> Dict[Agent, Vertex]:
+        """
+        δ⁰_A: random guess of each attacker's intended target, made
+        once per allocate() call. Sampled with replacement — several
+        attackers may plausibly be guessed as heading for the same
+        target.
+        """
+        if not targets:
+            return {}
+        return {attacker: random.choice(targets) for attacker in attackers}
+
+    # ------------------------------------------------------------------
+    # Step 1: simulate shortest paths of attackers to their targets
+    # ------------------------------------------------------------------ 
+    
+    
     def _simulate_attacker_paths(
         self,
         grid: Grid,
         attackers: List[Agent],
+        guessed_targets: Dict[Agent, Vertex],
         forbidden: Set[Vertex],
         path_finder: PathFinder,
     ) -> List[List[Vertex]]:
@@ -102,14 +155,17 @@ class BottleneckStrategy(AllocationStrategy):
         try:
             paths = []
             for attacker in attackers:
-                start = (attacker.x, attacker.y)
-                goal = getattr(attacker, "target", None)
+                start = attacker.get_position()
+                goal = guessed_targets.get(attacker)
+                print(f"Attacker at {start} heading for {goal}")
                 if goal is None or start == goal:
                     continue
                 try:
                     path = path_finder.find_path(start, goal)
                 except ValueError:
+                    print(f"No path found for attacker at {start} to goal {goal}")
                     path = None
+                
                 if path:
                     paths.append(path)
             return paths
@@ -119,17 +175,17 @@ class BottleneckStrategy(AllocationStrategy):
     def _mark_forbidden(self, grid: Grid, forbidden: Set[Vertex]) -> Set[Vertex]:
         """Marks forbidden vertices as TAKEN; returns those already TAKEN before (to restore correctly)."""
         already_taken = set()
-        for x, y in forbidden:
-            if grid.grid[y][x] == GridAvailability.TAKEN:
-                already_taken.add((x, y))
+        for pos in forbidden:
+            if grid.is_taken(pos):
+                already_taken.add(pos)
             else:
-                grid.mark_taken((x, y))
+                grid.mark_taken(pos)
         return already_taken
 
     def _unmark_forbidden(self, grid: Grid, forbidden: Set[Vertex], already_taken: Set[Vertex]):
-        for x, y in forbidden:
-            if (x, y) not in already_taken:
-                grid.grid[y][x] = GridAvailability.PASSABLE
+        for pos in forbidden:
+            if pos not in already_taken:
+                grid.unmark_taken(pos)
 
     # ------------------------------------------------------------------
     # Step 2: f(v) = number of paths passing through v
@@ -156,12 +212,13 @@ class BottleneckStrategy(AllocationStrategy):
         currently available (unassigned) defenders.
         """
         max_freq = max(frequency.values())
-        candidates = [v for v, f in frequency.items() if f == max_freq]
+        candidates = [v for v, f in frequency.items() 
+                      if f == max_freq and v not in self.attackers_starting_positions]
         if len(candidates) == 1:
             return candidates[0]
 
-        cx = sum(d.x for d in available_defenders) / len(available_defenders)
-        cy = sum(d.y for d in available_defenders) / len(available_defenders)
+        cx = sum(d.get_position()[0] for d in available_defenders) / len(available_defenders)
+        cy = sum(d.get_position()[1] for d in available_defenders) / len(available_defenders)
 
         def dist_to_defenders(v: Vertex) -> float:
             return (v[0] - cx) ** 2 + (v[1] - cy) ** 2
@@ -193,8 +250,9 @@ class BottleneckStrategy(AllocationStrategy):
             for y in range(cy - radius, cy + radius + 1):
                 if max(abs(x - cx), abs(y - cy)) != radius:
                     continue
-                if 0 <= x < grid.width and 0 <= y < grid.height:
-                    if grid.grid[y][x] == GridAvailability.OBSTACLE:
+                grid_width, grid_height = grid.get_dimensions()
+                if 0 <= x < grid_width and 0 <= y < grid_height:
+                    if grid.is_obstacle((x, y)):
                         fringe.add((x, y))
         return fringe
 
@@ -259,22 +317,16 @@ class BottleneckStrategy(AllocationStrategy):
         if not other_obstacles:
             return []
 
-        def passable(pos: Vertex) -> bool:
-            x, y = pos
-            if not (0 <= x < grid.width and 0 <= y < grid.height):
-                return False
-            if pos in forbidden:
-                return False
-            return grid.grid[y][x] == GridAvailability.PASSABLE
+        def passable(pos: Vertex) -> bool:    
+            if not pos in forbidden:
+                return grid.is_passable(pos)
+            return False
 
         def touches_other_component(pos: Vertex) -> bool:
             x, y = pos
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if dx == 0 and dy == 0:
-                        continue
-                    if (x + dx, y + dy) in other_obstacles:
-                        return True
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                if (x + dx, y + dy) in other_obstacles:
+                    return True
             return False
 
         def dist_to_w(pos: Vertex) -> float:
