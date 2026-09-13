@@ -63,20 +63,20 @@ class BottleneckStrategy(AllocationStrategy):
                 grid, attackers, guessed_targets, forbidden, path_finder
             )
             if not paths:
-                print("No paths found for attackers; all are blocked or have no targets.")
+                # print("No paths found for attackers; all are blocked or have no targets.")
                 # No attacker has a viable path at all; nothing left to exploit.
                 break
 
             frequency = self._vertex_frequency(paths)
-            print("Vertex frequency:")
-            print(frequency)
+            # print("Vertex frequency:")
+            # print(frequency)
             w = self._select_frequent_vertex(frequency, available_defenders)
-            print("The chosen vertex:")
-            print(w)
+            # print("The chosen vertex:")
+            # print(w)
 
             bottleneck = self._search_vicinity(grid, w, forbidden)
-            print("Bottleneck:")
-            print(bottleneck)
+            # print("Bottleneck:")
+            # print(bottleneck)
             if not bottleneck:
                 break
 
@@ -157,13 +157,13 @@ class BottleneckStrategy(AllocationStrategy):
             for attacker in attackers:
                 start = attacker.get_position()
                 goal = guessed_targets.get(attacker)
-                print(f"Attacker at {start} heading for {goal}")
+                # print(f"Attacker at {start} heading for {goal}")
                 if goal is None or start == goal:
                     continue
                 try:
                     path = path_finder.find_path(start, goal)
                 except ValueError:
-                    print(f"No path found for attacker at {start} to goal {goal}")
+                    # print(f"No path found for attacker at {start} to goal {goal}")
                     path = None
                 
                 if path:
