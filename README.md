@@ -24,7 +24,7 @@ MAP-ISP/
 │   ├── greedy_strategy.py       # ✅ Greedy allocation
 │   └── bottleneck_strategy.py   # ✅ Bottleneck simulation allocation
 │
-├── simulation_engine/
+├── simulation_engine/           📝
 │   ├── simulation.py            # ✅ Simulation orchestrator
 │   ├── step_snapshot.py         # ✅ State snapshot data class
 │   └── statistics_calculator.py # ✅ Metrics derivation
@@ -36,7 +36,8 @@ MAP-ISP/
 ├── tests/                       # 📝
 |   ├── tests_general.py         # ✅ Unit tests for core components
 |   ├── tests_bottleneck.py      # ✅ Deterministic map tests for BottleneckStrategy
-|   ├── tests_simulation.py      # ✅ Unit tests for simulation components
+|   ├── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
+|   ├── util_tests.py            # ✅ Util and helper methods for testing
 │
 ├── visualization/
 │   └── simulation_window.py     # ⏳ Tkinter GUI main window (not yet implemented)
@@ -100,16 +101,16 @@ MAP-ISP/
   - Fallback to random assignment for leftover defenders
   - **Test Coverage:** 10+ unit tests for internal methods; 3 deterministic end-to-end tests (new)
 
-#### Phase 3: Simulation Engine
-- `Simulation` — Orchestrates step-by-step simulation
+#### Phase 3: Simulation Engine- `Simulation` — Orchestrates step-by-step simulation
   - Single-stage defender allocation (strategy applied once)
   - LRA* agent movement: agents replan one step at a time against current grid occupancy
   - Defenders move before attackers each turn (per paper's turn-based framing)
   - Collision-free movement: agents avoid occupied cells and obstacles
-  - Target resolution: tracks captured and protected targets
+  - **Target Resolution:** Supports both physical target occupation and implicit protection (detects when attackers are completely blocked from reaching targets)
+  - Early termination when all targets are either captured or protected
   - Full history recording: snapshots captured at every step (including step 0)
-  - **Methods:** `step()`, `run()`, `_check_finished()`
-  - **Test Coverage:** Integration tests with all three strategies
+  - **Methods:** `step()`, `run()`, `_check_finished()`, `_update_target_states()`
+  - **Test Coverage:** Integration and deterministic tests with all three strategies (52+ total tests passing)
 
 - `StepSnapshot` — Immutable capture of grid state at a single simulation step
   - Stores agent positions (not references), making snapshots stable across steps
@@ -172,29 +173,29 @@ MAP-ISP/
 ---
 
 ## Development Roadmap
-
 ### Completed (Phase 1-3)
 - [x] Core grid, agent, pathfinding
 - [x] Three allocation strategies with unit tests
 - [x] Simulation engine with full history tracking
+- [x] Implicit target protection for blocked paths
 - [x] Statistics calculator
+- [x] Deterministic map tests for BottleneckStrategy & Simulation Engine (52 tests passing)
 
 ### Next (Immediate)
-- [x] Deterministic map tests for BottleneckStrategy (structure defined, ready to implement)
-- [ ] Address professor feedback on centroid heuristic (analysis provided, optional experiment planned)
+- [ ] Implement Tkinter GUI components (`SimulationWindow`, `GridCanvas`)
+- [ ] Address professor feedback on centroid heuristic (optional experiment)
 - [x] Update README to reflect actual implementation
 
-### Short Term (1-2 Weeks)
-- [ ] Implement Tkinter GUI components
+### Short Term (This week)
 - [ ] Create scenario loader (JSON/CSV parsing)
 - [ ] Integration tests: GUI + simulation engine
 
-### Medium Term (2-4 Weeks)
+### Medium Term (1 Week)
 - [ ] Refine visualization (smooth scrolling, zoom, grid highlighting)
 - [ ] Add predefined benchmark scenarios
 - [ ] Performance profiling on large grids (100+ steps)
 
-### Final (4-5 Weeks)
+### Final (2 Weeks)
 - [ ] End-to-end testing (all features)
 - [ ] Edge case handling (invalid scenarios, very long simulations, etc.)
 - [ ] Documentation cleanup
@@ -204,7 +205,7 @@ MAP-ISP/
 
 ## Technology Stack
 
-- **Backend**: Python 3.9+ (standard library only — no external dependencies)
+- **Backend**: Python 3.11+ (standard library only — no external dependencies)
 - **Frontend**: Tkinter (included with Python standard library)
 - **Testing**: Python unittest
 - **Version Control**: Git
@@ -270,7 +271,7 @@ Then use the GUI to:
 | RandomStrategy | ✅ Complete | ✅ Passing | Deterministic with seed |
 | GreedyStrategy | ✅ Complete | ✅ Passing | Correct distance-based assignment |
 | BottleneckStrategy | ✅ Complete | ✅ 10+ passing | Methods tested; end-to-end (new) |
-| Simulation Engine | ✅ Complete | ✅ Passing | Full pipeline working |
+| Simulation Engine | ✅ Complete | ✅ Passing unit and deterministic tests | Full pipeline working |
 | Statistics Calculator | ✅ Complete | ✅ Passing | All metrics functional |
 | Deterministic Map Tests | 📝 New | 3 | Structure defined, examples ready |
 | Tkinter GUI | ⏳ Planned | — | Phase 4 |
@@ -279,4 +280,4 @@ Then use the GUI to:
 
 ---
 
-*Last updated: September 2026 — Backend complete, feedback integrated, roadmap clarified*
+*Last updated: 13 September 2026 — Backend complete, feedback integrated, roadmap clarified*
