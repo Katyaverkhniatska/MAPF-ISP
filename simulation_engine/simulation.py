@@ -156,12 +156,30 @@ class Simulation:
         unresolved = set(self.targets) - self.captured_targets - self.protected_targets
         for target in unresolved:
             occupant = positions.get(target)
-            if occupant is None:
-                continue
-            if occupant in self.defenders:
-                self.protected_targets.add(target)
-            else:
-                self.captured_targets.add(target)
+            if occupant is not None:
+                if occupant in self.defenders:
+                    self.protected_targets.add(target)
+                else:
+                    self.captured_targets.add(target)
+                continue  # no need to check the other group if already resolved
+
+            if self.strategy.__class__.__name__ == "BottleneckStrategy":
+                # Check if any attacker can still reach this target
+                attacker_can_reach = False
+                for attacker in self.attackers:
+                    if attacker.get_target() == target:
+                        try:
+                            path = self.path_finder.find_path(attacker.get_position(), target)
+                            if path:
+                                attacker_can_reach = True
+                                break
+                        except ValueError:
+                            pass
+
+                # If no attacker can reach the target, meaning that defenders 
+                # successfully blocked all the paths, it is considered protected
+                if not attacker_can_reach:
+                    self.protected_targets.add(target)
 
     # ------------------------------------------------------------------
     # Snapshotting

@@ -1,9 +1,13 @@
 import unittest
 from unittest.mock import patch
+from allocation_strategies.bottleneck_strategy import BottleneckStrategy
+from allocation_strategies.greedy_strategy import GreedyStrategy
 from allocation_strategies.random_strategy import RandomStrategy
+from core_components.agent import Agent
+from core_components.agent_type import AgentType
 from core_components.grid import Grid
 from simulation_engine.simulation import Simulation
-from tests.util_tests import make_attacker, make_defender, FixedStrategy, FixedStrategyWithBottlenecks
+from tests.util_tests import make_attacker, make_defender, print_simulation_step, FixedStrategy, FixedStrategyWithBottlenecks
 
 
 class TestSimulationConstruction(unittest.TestCase):
@@ -211,6 +215,103 @@ class TestSnapshotAgentIds(unittest.TestCase):
         self.assertEqual(first_ids, last_ids)
         self.assertEqual(len(first_ids), 3)
 
+class TestSimulationDeterministic(unittest.TestCase):
+
+    def test_empty_grid_two_attackers_two_defenders(self):
+        """
+        Empty 7x7 Grid:
+        - 2 Targets in the center: (3, 3) and (3, 4)
+        - 2 Attackers starting at (0, 3) and (0, 4)
+        - 2 Defenders starting at (6, 3) and (6, 4)
+        Defenders and attackers race to the center.
+        """
+        width, height = 7, 7
+        obstacles = []
+        grid = Grid(width, height, obstacles)
+
+        t1, t2 = (3, 3), (3, 4)
+        targets = [t1, t2]
+
+        a1 = Agent(0, 3, AgentType.ATTACKER)
+        a1.set_target(t1)
+        a2 = Agent(0, 4, AgentType.ATTACKER)
+        a2.set_target(t2)
+        attackers = [a1, a2]
+
+        d1 = Agent(6, 3, AgentType.DEFENDER)
+        d2 = Agent(6, 4, AgentType.DEFENDER)
+        defenders = [d1, d2]
+
+        # Greedy strategy assigns closest defender to target
+        strategy = GreedyStrategy()
+        sim = Simulation(grid, defenders, attackers, targets, strategy, max_steps=10)
+
+        print("\n==================================================")
+        print("TEST 1: Empty Grid (2 Attackers, 2 Defenders, 2 Targets)")
+        print("==================================================")
+
+        # Print initial state (Step 0)
+        print_simulation_step(grid, sim.history[0], "Initial State (Step 0)")
+
+        # Run simulation tick-by-tick and display
+        while not sim.finished:
+            snapshot = sim.step()
+            if snapshot:
+                print_simulation_step(grid, snapshot)
+
+        self.assertTrue(sim.finished)
+        self.assertEqual(len(sim.protected_targets), 2, "Both targets should be protected by defenders")
+        self.assertEqual(len(sim.captured_targets), 0, "No targets should be captured")
+
+    def test_bottleneck_grid_two_attackers_three_defenders(self):
+        """
+        Grid with a vertical wall creating a 3-cell bottleneck passage:
+        - Passage at x=3, y in [2, 3, 4]
+        - 2 Attackers on the left: (0, 2) and (0, 4) heading for targets on the right
+        - 3 Defenders on the left: (1, 2), (1, 3), and (1, 4)
+        - 2 Targets on the right side: (5, 2) and (5, 4)
+        """
+        width, height = 7, 7
+        
+        # Vertical wall at x=3 with a 3-cell gap at y=2, 3, 4
+        obstacles = [(3, 0), (3, 1), (3, 5), (3, 6)]
+        grid = Grid(width, height, obstacles)
+
+        t1, t2 = (5, 2), (5, 4)
+        targets = [t1, t2]
+
+        a1 = Agent(0, 2, AgentType.ATTACKER)
+        a1.set_target(t1)
+        a2 = Agent(0, 4, AgentType.ATTACKER)
+        a2.set_target(t2)
+        attackers = [a1, a2]
+
+        d1 = Agent(1, 2, AgentType.DEFENDER)
+        d2 = Agent(1, 3, AgentType.DEFENDER)
+        d3 = Agent(1, 4, AgentType.DEFENDER)
+        defenders = [d1, d2, d3]
+
+        strategy = BottleneckStrategy(use_true_targets=True)
+        sim = Simulation(grid, defenders, attackers, targets, strategy, max_steps=15)
+
+        print("\n==================================================")
+        print("TEST 2: Bottleneck Grid (2 Attackers, 3 Defenders, 3-cell gap)")
+        print("==================================================")
+
+        # Print initial state (Step 0)
+        print_simulation_step(grid, sim.history[0], "Initial State (Step 0)")
+
+        # Run simulation tick-by-tick and display
+        while not sim.finished:
+            snapshot = sim.step()
+            if snapshot:
+                print_simulation_step(grid, snapshot)
+
+        self.assertTrue(sim.finished)
+        self.assertGreaterEqual(
+            len(sim.protected_targets), 1,
+            "At least one target should be protected by defender bottleneck allocation"
+        )
 
 if __name__ == "__main__":
     unittest.main()

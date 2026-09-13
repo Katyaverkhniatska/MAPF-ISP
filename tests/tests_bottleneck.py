@@ -33,7 +33,7 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
     # Layout:
     # #######
     # #A    #
-    # # # # #
+    # # #D# #
     # # ### #
     # #   #T#
     # #######

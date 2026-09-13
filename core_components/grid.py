@@ -97,5 +97,15 @@ class Grid:
         """
         Prints the grid to the console for visualization.
         """
+        def map_name_to_char(name):
+            if name == "PASSABLE":
+                return "."
+            elif name == "OBSTACLE":
+                return "#"
+            elif name == "TAKEN":
+                return "T"
+            else:
+                return "?"
+
         for row in self.__grid:
-            print(' '.join(cell.name[0] for cell in row))
+            print(' '.join(map_name_to_char(cell.name) for cell in row))
