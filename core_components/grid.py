@@ -20,7 +20,7 @@ class Grid:
     def get_dimensions(self) -> Tuple[int, int]:
         return self.__width, self.__height
 
-    def _validate_position(self, position: Vertex) -> bool:
+    def is_in_bounds(self, position: Vertex) -> bool:
         x, y = position
         return 0 <= x < self.__width and 0 <= y < self.__height
 
@@ -29,14 +29,14 @@ class Grid:
         Marks the obstacles on the grid based on the provided list of coordinates.
         """
         for x, y in self.__obstacles:
-            if self._validate_position((x, y)):
+            if self.is_in_bounds((x, y)):
                 self.__grid[y][x] = GridAvailability.OBSTACLE
 
     def mark_taken(self, position : Vertex):
         """
         Marks a cell as taken (occupied) on the grid.
         """
-        if self._validate_position(position) and not self.is_obstacle(position):
+        if self.is_in_bounds(position) and not self.is_obstacle(position):
             x, y = position
             self.__grid[y][x] = GridAvailability.TAKEN
 
@@ -44,7 +44,7 @@ class Grid:
         """
         Unmarks a cell as taken (occupied) on the grid, making it passable again.
         """
-        if self._validate_position(position) and self.is_taken(position):
+        if self.is_in_bounds(position) and self.is_taken(position):
             x, y = position
             self.__grid[y][x] = GridAvailability.PASSABLE
 
@@ -52,7 +52,7 @@ class Grid:
         """
         Returns True if a cell is empty and within the grid boundaries, otherwise returns False
         """
-        if self._validate_position(position):
+        if self.is_in_bounds(position):
             x, y = position
             return self.__grid[y][x] == GridAvailability.PASSABLE
         return False
@@ -61,7 +61,7 @@ class Grid:
         """
         Returns True if a cell is taken (occupied) and within the grid boundaries, otherwise returns False
         """
-        if self._validate_position(position):
+        if self.is_in_bounds(position):
             x, y = position
             return self.__grid[y][x] == GridAvailability.TAKEN
         return False
@@ -70,7 +70,7 @@ class Grid:
         """
         Returns True if a cell is an obstacle and within the grid boundaries, otherwise returns False
         """
-        if self._validate_position(position):
+        if self.is_in_bounds(position):
             x, y = position
             return self.__grid[y][x] == GridAvailability.OBSTACLE
         return False
@@ -83,7 +83,7 @@ class Grid:
         neighbors = []
         for dx, dy in [(-1, 0), (0, 1), (0, -1), (1, 0)]:
             new_x, new_y = x + dx, y + dy
-            if self._validate_position((new_x, new_y)):
+            if self.is_in_bounds((new_x, new_y)):
                 neighbors.append((new_x, new_y))
         return neighbors
     
@@ -103,7 +103,7 @@ class Grid:
             elif name == "OBSTACLE":
                 return "#"
             elif name == "TAKEN":
-                return "T"
+                return "A"
             else:
                 return "?"
 

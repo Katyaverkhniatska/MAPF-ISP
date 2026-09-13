@@ -78,13 +78,6 @@ class TestPathFinder(unittest.TestCase):
         with self.assertRaises(ValueError):
             pathfinder.find_path((0, 0), (2, 2))
 
-    def test_start_is_obstacle(self):
-        """Start position is blocked - raises ValueError"""
-        grid = Grid(5, 5, obstacles=[(0, 0)])
-        pathfinder = PathFinder(grid)
-        with self.assertRaises(ValueError):
-            pathfinder.find_path((0, 0), (3, 3))
-
     def test_start_out_of_bounds(self):
         """Start position is out of bounds - raises ValueError"""
         grid = Grid(5, 5, obstacles=[])
@@ -105,7 +98,7 @@ class TestRandomStrategy(unittest.TestCase):
     def test_all_defenders_assigned(self):
         """Every defender gets a target"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0), make_defender(1, 0)]
+        defenders = [make_defender(0, 0, grid=grid), make_defender(1, 0, grid=grid)]
         targets = [(5, 5), (6, 6), (7, 7)]
         attackers = []
 
@@ -120,7 +113,7 @@ class TestRandomStrategy(unittest.TestCase):
     def test_more_defenders_than_targets(self):
         """Defenders share targets when outnumbered"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(i, 0) for i in range(5)]
+        defenders = [make_defender(i, 0, grid=grid) for i in range(5)]
         targets = [(5, 5), (6, 6)]
         attackers = []
 
@@ -141,7 +134,7 @@ class TestRandomStrategy(unittest.TestCase):
     def test_empty_targets(self):
         """Returns empty dict when no targets"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0)]
+        defenders = [make_defender(0, 0, grid=grid)]
         strategy = RandomStrategy()
         result = strategy.allocate(grid, defenders, [], [])
         self.assertEqual(result, {})
@@ -152,7 +145,7 @@ class TestGreedyStrategy(unittest.TestCase):
     def test_closest_target_assigned(self):
         """Each defender gets the nearest target"""
         grid = Grid(10, 10, obstacles=[])
-        defender = make_defender(0, 0)
+        defender = make_defender(0, 0, grid=grid)
         targets = [(1, 0), (8, 8)]  # (1,0) is clearly closer
         
         strategy = GreedyStrategy()
@@ -163,7 +156,7 @@ class TestGreedyStrategy(unittest.TestCase):
     def test_no_duplicate_assignments(self):
         """Two defenders don't get the same target when enough targets exist"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0), make_defender(9, 9)]
+        defenders = [make_defender(0, 0, grid=grid), make_defender(9, 9, grid=grid)]
         targets = [(1, 0), (8, 9)]
 
         strategy = GreedyStrategy()
@@ -175,7 +168,7 @@ class TestGreedyStrategy(unittest.TestCase):
     def test_more_defenders_than_targets(self):
         """Extra defenders share the closest target"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0) for _ in range(3)]
+        defenders = [make_defender(0, 0, grid=grid) for _ in range(3)]
         targets = [(1, 0)]
 
         strategy = GreedyStrategy()
@@ -195,7 +188,7 @@ class TestGreedyStrategy(unittest.TestCase):
     def test_empty_targets(self):
         """Returns empty dict when no targets"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0)]
+        defenders = [make_defender(0, 0, grid=grid)]
         strategy = GreedyStrategy()
         result = strategy.allocate(grid, defenders, [], [])
         self.assertEqual(result, {})
@@ -217,7 +210,7 @@ class TestBottleneckStrategy(unittest.TestCase):
     def test_empty_targets(self):
         """Returns empty dict when no targets and no attackers"""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0)]
+        defenders = [make_defender(0, 0, grid=grid)]
         strategy = BottleneckStrategy()
         result = strategy.allocate(grid, defenders, [], [])
         self.assertEqual(result, {})
@@ -226,7 +219,7 @@ class TestBottleneckStrategy(unittest.TestCase):
         """With no attackers there are no paths to simulate, so the loop
         breaks immediately and defenders fall back to random targets."""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0), make_defender(9, 9)]
+        defenders = [make_defender(0, 0, grid=grid), make_defender(9, 9, grid=grid)]
         targets = [(1, 0), (8, 9)]
  
         strategy = BottleneckStrategy()
@@ -239,7 +232,7 @@ class TestBottleneckStrategy(unittest.TestCase):
         """Fallback random assignment should spread defenders across
         distinct targets rather than sampling the same one twice."""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0) for _ in range(3)]
+        defenders = [make_defender(0, 0, grid=grid) for _ in range(3)]
         targets = [(1, 0), (2, 0), (3, 0)]
  
         strategy = BottleneckStrategy()
@@ -277,8 +270,8 @@ class TestBottleneckStrategy(unittest.TestCase):
         ordering behavior demonstrated above).
         """
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0), make_defender(1, 1)]
-        attacker = make_attacker(0, 0, target=(9, 9))
+        defenders = [make_defender(0, 0, grid=grid), make_defender(1, 1, grid=grid)]
+        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy()
  
         bottleneck_sequence = [[(5, 5)], [(6, 6)]]
@@ -323,8 +316,8 @@ class TestBottleneckStrategy(unittest.TestCase):
         matching-length prefix of the bottleneck's vertices should be
         claimed. Mocked for determinism, same reasoning as above."""
         grid = Grid(10, 10, obstacles=[])
-        defender = make_defender(0, 0)  # only one defender available
-        attacker = make_attacker(0, 0, target=(9, 9))
+        defender = make_defender(0, 0, grid=grid)  # only one defender available
+        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy()
  
         with patch.object(strategy, "_simulate_attacker_paths", return_value=[[(5, 5)]]), \
@@ -343,7 +336,7 @@ class TestBottleneckStrategy(unittest.TestCase):
         the bug that made Bottleneck degenerate into Random before
         Agent.get_target() and the guessing step existed."""
         grid = Grid(10, 10, obstacles=[])
-        attacker = make_attacker(0, 0, target=(9, 9))
+        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy()
         path_finder = PathFinder(grid)
 
@@ -360,9 +353,10 @@ class TestBottleneckStrategy(unittest.TestCase):
         """Every guessed target must be one of the actual targets given,
         for every attacker -- sampling is with replacement, so repeats
         across attackers are fine."""
+        grid = Grid(10, 10, obstacles=[])
         strategy = BottleneckStrategy()
         targets = [(1, 1), (2, 2), (3, 3)]
-        attackers = [make_attacker(0, 0, target=(9, 9)) for _ in range(20)]
+        attackers = [make_attacker(0, 0, target=(9, 9), grid=grid) for _ in range(20)]
 
         guesses = strategy._guess_attacker_targets(attackers, targets)
 
@@ -372,8 +366,9 @@ class TestBottleneckStrategy(unittest.TestCase):
 
     def test_guess_attacker_targets_with_no_targets_returns_empty(self):
         """No targets to guess from -> no crash, just an empty mapping."""
+        grid = Grid(10, 10, obstacles=[])
         strategy = BottleneckStrategy()
-        attacker = make_attacker(0, 0, target=(9, 9))
+        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
 
         self.assertEqual(strategy._guess_attacker_targets([attacker], []), {})
 
@@ -384,8 +379,8 @@ class TestBottleneckStrategy(unittest.TestCase):
         iteration, blocking one bottleneck could make a previously-found
         one vanish for no structural reason."""
         grid = Grid(10, 10, obstacles=[])
-        defenders = [make_defender(0, 0), make_defender(1, 1)]
-        attacker = make_attacker(0, 0, target=(9, 9))
+        defenders = [make_defender(0, 0, grid=grid), make_defender(1, 1, grid=grid)]
+        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy()
 
         bottleneck_sequence = [[(5, 5)], [(6, 6)]]
@@ -407,7 +402,8 @@ class TestBottleneckStrategy(unittest.TestCase):
         use Agent.get_target() directly, ignoring the target list entirely
         -- proven here by giving a target list that doesn't even contain
         the attacker's real target."""
-        attacker = make_attacker(0, 0, target=(9, 9))
+        grid = Grid(10, 10, obstacles=[])
+        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy(use_true_targets=True)
 
         determined = strategy._determine_attacker_targets([attacker], targets=[(1, 1)])
@@ -417,7 +413,8 @@ class TestBottleneckStrategy(unittest.TestCase):
     def test_use_true_targets_skips_attackers_without_target(self):
         """An attacker with no target set (get_target() is None) should be
         excluded, matching the old goal-is-None skip behavior."""
-        attacker = make_attacker(0, 0, target=None)  # target never set
+        grid = Grid(10, 10, obstacles=[])
+        attacker = make_attacker(0, 0, target=None, grid=grid)  # target never set
         strategy = BottleneckStrategy(use_true_targets=True)
 
         determined = strategy._determine_attacker_targets([attacker], targets=[(1, 1)])

@@ -127,14 +127,13 @@ class Simulation:
 
         # Free the agent's own cell so its own A* search doesn't treat
         # itself as an obstacle.
-        self.grid.unmark_taken(pos)
         try:
             path = self.path_finder.find_path(pos, target)
         except ValueError:
             path = None
 
         if not path or len(path) < 2:
-            self.grid.mark_taken(pos)  # blocked or already arrived -- stay put
+            # blocked or already arrived -- stay put
             return
 
         next_pos = path[1]
@@ -142,9 +141,9 @@ class Simulation:
         # (Bottleneck already relies on this), so this should be
         # unreachable -- kept as a safety net against future changes.
         if self.grid.is_taken(next_pos) or self.grid.is_obstacle(next_pos):
-            self.grid.mark_taken(pos)
             return
 
+        self.grid.unmark_taken(pos)
         agent.move_to(*next_pos)
         self.grid.mark_taken(next_pos)
 
@@ -167,18 +166,22 @@ class Simulation:
                 # Check if any attacker can still reach this target
                 attacker_can_reach = False
                 for attacker in self.attackers:
+                    print(f"  Attacker at {attacker.get_position()}, target: {attacker.get_target()}")
                     if attacker.get_target() == target:
                         try:
                             path = self.path_finder.find_path(attacker.get_position(), target)
+                            print(f"    Path from {attacker.get_position()} to {target}: {path}")
                             if path:
                                 attacker_can_reach = True
                                 break
-                        except ValueError:
+                        except ValueError as e:
+                            print(f"    PathFinder error: {e}")
                             pass
 
                 # If no attacker can reach the target, meaning that defenders 
                 # successfully blocked all the paths, it is considered protected
                 if not attacker_can_reach:
+                    print(f"Target {target} is now protected (no attacker can reach it).")
                     self.protected_targets.add(target)
 
     # ------------------------------------------------------------------

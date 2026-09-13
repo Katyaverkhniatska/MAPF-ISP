@@ -4,16 +4,21 @@ from core_components.agent_type import AgentType
 from core_components.grid import Grid
 
 
-def make_attacker(x, y, target):
+def make_attacker(x, y, target, grid: Grid):
     """Build an attacker and set its (already-known) target, satisfying
-    Simulation's precondition that every attacker arrives with a target."""
+    Simulation's precondition that every attacker arrives with a target.
+    Also marks the attacker's position as taken in the grid."""
     attacker = Agent(x, y, AgentType.ATTACKER)
     attacker.set_target(target)
+    grid.mark_taken(attacker.get_position())
     return attacker
 
 
-def make_defender(x, y):
-    return Agent(x, y, AgentType.DEFENDER)
+def make_defender(x, y, grid: Grid):
+    """Build a defender and mark its position as taken in the grid."""
+    defender = Agent(x, y, AgentType.DEFENDER)
+    grid.mark_taken(defender.get_position())
+    return defender
 
 
 class FixedStrategy(AllocationStrategy):

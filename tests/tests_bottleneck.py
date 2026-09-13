@@ -18,6 +18,7 @@ from core_components.agent import Agent
 from core_components.agent_type import AgentType
 from core_components.grid import Grid, Vertex
 from allocation_strategies.bottleneck_strategy import BottleneckStrategy
+from tests.util_tests import make_attacker, make_defender
 
 
 class TestBottleneckDeterministicMaps(unittest.TestCase):
@@ -58,17 +59,17 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
         ]
         
         grid = Grid(width, height, obstacles)
-        print("\nGrid layout for test_simple_gap:")
-        grid.print_grid()  # Optional: visualize the grid for debugging
         
         target = (5, 4)  # Target on the right side of the gap
         
         # Agents: one attacker at (1, 4) heading for target T at (5, 4)
-        attacker = Agent(1, 4, AgentType.ATTACKER)
-        attacker.set_target(target)
+        attacker = make_attacker(1, 4, target=target, grid=grid)
         
         # Defender starts at (3, 2)
-        defender = Agent(3, 2, AgentType.DEFENDER)
+        defender = make_defender(3, 2, grid=grid)
+
+        print("\nGrid layout for test_simple_gap:")
+        grid.print_grid()  # Optional: visualize the grid for debugging
         
         strategy = BottleneckStrategy(use_true_targets=True)
         assignment = strategy.allocate(grid, [defender], [target], [attacker])
@@ -135,19 +136,18 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
         ]
         
         grid = Grid(width, height, obstacles)
-        print("\nGrid layout for test_two_bottlenecks:")
-        grid.print_grid()  # Optional: visualize the grid for debugging
         
         # Attacker at (1, 5), target at (2, 1)
-        attacker = Agent(1, 5, AgentType.ATTACKER)
-        attacker.set_target((2, 1))
+        attacker = make_attacker(1, 5, target=(2, 1), grid=grid)
         # Attacker at (7, 5), target at (7, 1)
-        attacker = Agent(7, 5, AgentType.ATTACKER)
-        attacker.set_target((7, 1))
+        attacker = make_attacker(7, 5, target=(7, 1), grid=grid)
         
         # Two defenders to block the main bottleneck
-        defender1 = Agent(4, 5, AgentType.DEFENDER)
-        defender2 = Agent(6, 3, AgentType.DEFENDER)
+        defender1 = make_defender(4, 5, grid=grid)
+        defender2 = make_defender(6, 3, grid=grid)
+
+        print("\nGrid layout for test_two_bottlenecks:")
+        grid.print_grid()  # Optional: visualize the grid for debugging
         
         targets = [(2, 1), (7, 1)]
         
@@ -170,7 +170,7 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
         print(f"✓ Test passed: defenders spread to {assigned_positions}")
 
     # =====================================================================
-    # Test 3: No Bottleneck (Open Space)
+    # Test 3: No Bottleneck (Open Space 1)
     # =====================================================================
     #
     # Layout:
@@ -182,7 +182,7 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
     # Open space with no obstacle groups -> no bottleneck.
     # Strategy should fall back to random assignment.
     #
-    def test_no_bottleneck_open_space(self):
+    def test_no_bottleneck_open_space1(self):
         """
         Grid with no significant obstacle groups -> no bottleneck to find.
         Strategy should fall back to random assignment to available targets.
@@ -193,11 +193,13 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
         
         grid = Grid(width, height, obstacles)
         
-        attacker = Agent(1, 1, AgentType.ATTACKER)
-        attacker.set_target((5, 1))
+        attacker = make_attacker(1, 1, target=(5, 1), grid=grid)
         
-        defender1 = Agent(2, 1, AgentType.DEFENDER)
-        defender2 = Agent(1, 2, AgentType.DEFENDER)
+        defender1 = make_defender(2, 1, grid=grid)
+        defender2 = make_defender(1, 2, grid=grid)
+
+        print("\nGrid layout for test_no_bottleneck_open_space1:")
+        grid.print_grid()  # Optional: visualize the grid for debugging
         
         targets = [(4, 2), (5, 1)]
         
@@ -213,7 +215,57 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
             f"Got {assigned_positions}, targets are {targets}"
         )
         
-        print(f"✓ Test passed: no bottleneck, fallback to targets: {assigned_positions}")
+        print(f"✓ Test open space 1 passed: no bottleneck, fallback to targets: {assigned_positions}")
+
+    # =====================================================================
+    # Test 4: No Bottleneck (Open Space 2)
+    # =====================================================================
+    #
+    # Layout:
+    # _______
+    #|       |
+    #|A  T  D|
+    #|A  T  D|
+    # _______
+    #
+    # Open space with no obstacle groups -> no bottleneck.
+    # Strategy should fall back to random assignment.
+    #
+    def test_no_bottleneck_open_space2(self):
+        """
+        Grid with no significant obstacle groups -> no bottleneck to find.
+        Strategy should fall back to random assignment to available targets.
+        """
+        width, height = 7, 4
+        obstacles = [
+        ]
+        
+        grid = Grid(width, height, obstacles)
+        
+        attacker1 = make_attacker(0, 1, target=(3, 1), grid=grid)
+        attacker2 = make_attacker(0, 2, target=(3, 2), grid=grid)
+        
+        defender1 = make_defender(6, 1, grid=grid)
+        defender2 = make_defender(6, 2, grid=grid)
+
+        print("\nGrid layout for test_no_bottleneck_open_space2:")
+        grid.print_grid()  # Optional: visualize the grid for debugging
+        
+        targets = [(3, 1), (3, 2)]
+        
+        strategy = BottleneckStrategy(use_true_targets=True)
+        assignment = strategy.allocate(grid, [defender1, defender2], targets, [attacker1, attacker2])
+        
+        # No bottleneck found -> fallback to random from available targets
+        self.assertEqual(len(assignment), 2)
+        assigned_positions = set(assignment.values())
+        self.assertTrue(
+            assigned_positions.issubset(set(targets)),
+            f"With no bottleneck, defenders should be assigned to available targets. "
+            f"Got {assigned_positions}, targets are {targets}"
+        )
+        
+        print(f"✓ Test open space 2 passed: no bottleneck, fallback to targets: {assigned_positions}")
 
 
 if __name__ == "__main__":

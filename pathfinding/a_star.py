@@ -4,8 +4,11 @@ import heapq
 class AStar:
     def __init__(self, start : Vertex, goal : Vertex, grid : Grid):
         self.grid = grid
-        if not self.grid.is_passable(start) or not self.grid.is_passable(goal):
-            raise ValueError("Start or goal position is invalid or out of bounds.")
+        if not self.grid.is_in_bounds(start):
+            raise ValueError("Start position is not in bounds.")
+
+        if not self.grid.is_passable(goal):
+            raise ValueError("Goal position is not passable or out of bounds.")
         self.start = start
         self.goal = goal
 
