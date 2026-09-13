@@ -125,14 +125,16 @@ class Simulation:
         if target is None or pos == target:
             return
 
-        # Free the agent's own cell so its own A* search doesn't treat
-        # itself as an obstacle.
         try:
             path = self.path_finder.find_path(pos, target)
         except ValueError:
             path = None
 
         if not path or len(path) < 2:
+            # For debugginf purposes
+            print(f"Step: {self.step_count}")
+            print(f"Warning: {agent.get_type()} {agent.get_position()} has no valid next step towards its target {target}.")
+            print(f"Path found: {path}")
             # blocked or already arrived -- stay put
             return
 
@@ -166,22 +168,18 @@ class Simulation:
                 # Check if any attacker can still reach this target
                 attacker_can_reach = False
                 for attacker in self.attackers:
-                    print(f"  Attacker at {attacker.get_position()}, target: {attacker.get_target()}")
                     if attacker.get_target() == target:
                         try:
                             path = self.path_finder.find_path(attacker.get_position(), target)
-                            print(f"    Path from {attacker.get_position()} to {target}: {path}")
                             if path:
                                 attacker_can_reach = True
                                 break
                         except ValueError as e:
-                            print(f"    PathFinder error: {e}")
                             pass
 
                 # If no attacker can reach the target, meaning that defenders 
                 # successfully blocked all the paths, it is considered protected
                 if not attacker_can_reach:
-                    print(f"Target {target} is now protected (no attacker can reach it).")
                     self.protected_targets.add(target)
 
     # ------------------------------------------------------------------

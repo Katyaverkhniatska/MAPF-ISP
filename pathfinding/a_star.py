@@ -7,8 +7,12 @@ class AStar:
         if not self.grid.is_in_bounds(start):
             raise ValueError("Start position is not in bounds.")
 
+        if not self.grid.is_in_bounds(goal):
+            raise ValueError("Goal position is not in bounds.")
+
         if not self.grid.is_passable(goal):
-            raise ValueError("Goal position is not passable or out of bounds.")
+            raise ValueError("Goal position is not passable.")
+        
         self.start = start
         self.goal = goal
 

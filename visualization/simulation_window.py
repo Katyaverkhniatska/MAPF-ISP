@@ -41,16 +41,16 @@ class SimulationWindow(tk.Tk):
 
         self._build_ui()
 
-    # ---------------------------------------------------------------------- UI
+    # -------------------- UI --------------------
 
     def _build_ui(self):
-        # ── top bar ──────────────────────────────────────────────────────────
+        # -------------------- top bar --------------------
         self.scenario_selector = ScenarioSelector(self, on_load=self._load_scenario)
         self.scenario_selector.pack(fill=tk.X, padx=6, pady=6)
 
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X)
 
-        # ── centre: scrollable canvas area ───────────────────────────────────
+        # -------------------- centre: scrollable canvas area --------------------
         centre = ttk.Frame(self)
         centre.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
@@ -67,7 +67,7 @@ class SimulationWindow(tk.Tk):
 
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X)
 
-        # ── bottom: controls ─────────────────────────────────────────────────
+        # -------------------- bottom: controls --------------------
         self.control_panel = ControlPanel(
             self,
             on_play=self._play,
@@ -77,7 +77,7 @@ class SimulationWindow(tk.Tk):
         )
         self.control_panel.pack(fill=tk.X, padx=6, pady=6)
 
-    # ---------------------------------------------------------------- loading
+    # -------------------- LOADING SCENARIOS --------------------
 
     def _load_scenario(self, scenario_key: str, strategy_name: str):
         """Build scenario, run simulation, reset display to step 0."""
@@ -98,16 +98,11 @@ class SimulationWindow(tk.Tk):
             }[strategy_name]
 
             sim = Simulation(grid, defenders, attackers, targets, strategy, max_steps=50)
-            print(f"\nAssignment: {sim.assignment}")
-            print(f"Bottleneck vertices: {sim.bottleneck_vertices}")
             sim.run()
+
             self.history    = sim.history
             self.calculator = StatisticsCalculator(self.history)
 
-            print(f"History length: {len(self.history)}, current_step: {self.current_step}")
-            print(f"Sim finished: {sim.finished}, step_count: {sim.step_count}")
-
-            # ── update canvas IN PLACE (no new widget created) ───────────────
             self.grid_canvas.set_grid(grid)
             self.current_step = 0
             self._refresh_display()
@@ -115,7 +110,7 @@ class SimulationWindow(tk.Tk):
         except Exception as exc:
             messagebox.showerror("Error", f"Failed to load scenario:\n{exc}")
 
-    # --------------------------------------------------------------- playback
+    # -------------------- PLAYBACK --------------------
 
     def _play(self):
         """Start or resume auto-stepping using Tkinter's after()."""
@@ -164,7 +159,7 @@ class SimulationWindow(tk.Tk):
             self.current_step -= 1
             self._refresh_display()
 
-    # ------------------------------------------------------------ display sync
+    # -------------------- DISPLAY SYNC --------------------
 
     def _refresh_display(self):
         if not self.history:
@@ -175,7 +170,7 @@ class SimulationWindow(tk.Tk):
         self.stats_panel.update(snapshot, self.calculator)
         self.control_panel.update_step(self.current_step, len(self.history) - 1)
 
-    # --------------------------------------------------------------- scenarios
+    # -------------------- SCENARIOS --------------------
 
     def _build_scenario(self, key: str):
         """Returns (Grid, attackers, defenders, targets)."""
@@ -184,8 +179,6 @@ class SimulationWindow(tk.Tk):
             attackers = [Agent(0, 3, AgentType.ATTACKER), Agent(0, 4, AgentType.ATTACKER)]
             defenders = [Agent(6, 3, AgentType.DEFENDER), Agent(6, 4, AgentType.DEFENDER)]
             targets   = [(3, 3), (3, 4)]
-            attackers[0].set_target(targets[0])
-            attackers[1].set_target(targets[1])
 
         elif key == "bottleneck_passage":
             grid = Grid(7, 7, obstacles=[(3, 0), (3, 1), (3, 5), (3, 6)])
@@ -203,12 +196,5 @@ class SimulationWindow(tk.Tk):
                          Agent(1, 3, AgentType.DEFENDER),
                          Agent(1, 5, AgentType.DEFENDER)]
             targets   = [(6, 1), (6, 4)]
-            attackers[0].set_target(targets[0])
-            attackers[1].set_target(targets[1])
 
         return grid, attackers, defenders, targets
-
-
-if __name__ == "__main__":
-    app = SimulationWindow()
-    app.mainloop()

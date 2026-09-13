@@ -24,3 +24,6 @@ class Agent:
 
     def get_position(self) -> Vertex:
         return (self.__x, self.__y)
+
+    def get_type(self) -> AgentType:
+        return self.__type
