@@ -37,4 +37,4 @@ USER appuser
 COPY . .
 
 # Run the application.
-CMD python -m unittest discover -s . -p tests.py -v
+CMD python -m unittest discover -s tests

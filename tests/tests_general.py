@@ -1,4 +1,5 @@
 import unittest
+from tests.util_tests import make_attacker, make_defender
 from unittest.mock import patch
 from allocation_strategies.greedy_strategy import GreedyStrategy
 from allocation_strategies.random_strategy import RandomStrategy
@@ -7,18 +8,7 @@ from core_components.agent import Agent
 from core_components.agent_type import AgentType
 from core_components.grid import Grid
 from pathfinding.path_finder import PathFinder
-from allocation_strategies.allocation_strategy import AllocationStrategy
 
-def make_attacker(x, y, target):
-    """Build an attacker and set its (already-known) target, satisfying
-    Simulation's precondition that every attacker arrives with a target."""
-    attacker = Agent(x, y, AgentType.ATTACKER)
-    attacker.set_target(target)
-    return attacker
- 
- 
-def make_defender(x, y):
-    return Agent(x, y, AgentType.DEFENDER)
 
 class TestPathFinder(unittest.TestCase):
     """Test suite for PathFinder A* algorithm"""
@@ -357,7 +347,7 @@ class TestBottleneckStrategy(unittest.TestCase):
         # Only the first vertex of the 2-vertex bottleneck gets claimed.
         self.assertEqual(result, {defender: (5, 5)})
 
-        # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Attacker-target guessing (delta^0_A)
     # ------------------------------------------------------------------
     def test_simulate_attacker_paths_uses_guessed_target_not_real_one(self):

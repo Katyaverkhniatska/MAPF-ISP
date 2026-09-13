@@ -38,6 +38,7 @@ class BottleneckStrategy(AllocationStrategy):
 
     def __init__(self, use_true_targets: bool = False):
         self.use_true_targets = use_true_targets
+        self.attackers_starting_positions: Set[Vertex] = set()
 
     def allocate(
         self,
@@ -51,6 +52,7 @@ class BottleneckStrategy(AllocationStrategy):
         available_defenders: List[Agent] = list(defenders)
         available_targets: List[Vertex] = list(targets)
         forbidden: Set[Vertex] = set()
+        self.attackers_starting_positions: Set[Vertex] = {a.get_position() for a in attackers}
         assignment: Dict[Agent, Vertex] = {}
 
         # δ⁰_A — fixed for the rest of this call, per Algorithm 1.
@@ -61,13 +63,20 @@ class BottleneckStrategy(AllocationStrategy):
                 grid, attackers, guessed_targets, forbidden, path_finder
             )
             if not paths:
+                print("No paths found for attackers; all are blocked or have no targets.")
                 # No attacker has a viable path at all; nothing left to exploit.
                 break
 
             frequency = self._vertex_frequency(paths)
+            print("Vertex frequency:")
+            print(frequency)
             w = self._select_frequent_vertex(frequency, available_defenders)
+            print("The chosen vertex:")
+            print(w)
 
             bottleneck = self._search_vicinity(grid, w, forbidden)
+            print("Bottleneck:")
+            print(bottleneck)
             if not bottleneck:
                 break
 
@@ -148,11 +157,13 @@ class BottleneckStrategy(AllocationStrategy):
             for attacker in attackers:
                 start = attacker.get_position()
                 goal = guessed_targets.get(attacker)
+                print(f"Attacker at {start} heading for {goal}")
                 if goal is None or start == goal:
                     continue
                 try:
                     path = path_finder.find_path(start, goal)
                 except ValueError:
+                    print(f"No path found for attacker at {start} to goal {goal}")
                     path = None
                 
                 if path:
@@ -201,7 +212,8 @@ class BottleneckStrategy(AllocationStrategy):
         currently available (unassigned) defenders.
         """
         max_freq = max(frequency.values())
-        candidates = [v for v, f in frequency.items() if f == max_freq]
+        candidates = [v for v, f in frequency.items() 
+                      if f == max_freq and v not in self.attackers_starting_positions]
         if len(candidates) == 1:
             return candidates[0]
 
@@ -312,12 +324,9 @@ class BottleneckStrategy(AllocationStrategy):
 
         def touches_other_component(pos: Vertex) -> bool:
             x, y = pos
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if dx == 0 and dy == 0:
-                        continue
-                    if (x + dx, y + dy) in other_obstacles:
-                        return True
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                if (x + dx, y + dy) in other_obstacles:
+                    return True
             return False
 
         def dist_to_w(pos: Vertex) -> float:

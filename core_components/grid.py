@@ -92,3 +92,10 @@ class Grid:
         Returns the current state of the grid as a 2D list of GridAvailability values.
         """
         return self.__grid
+
+    def print_grid(self):
+        """
+        Prints the grid to the console for visualization.
+        """
+        for row in self.__grid:
+            print(' '.join(cell.name[0] for cell in row))

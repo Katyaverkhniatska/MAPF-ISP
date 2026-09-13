@@ -1,0 +1,216 @@
+import unittest
+from unittest.mock import patch
+from allocation_strategies.random_strategy import RandomStrategy
+from core_components.grid import Grid
+from simulation_engine.simulation import Simulation
+from tests.util_tests import make_attacker, make_defender, FixedStrategy, FixedStrategyWithBottlenecks
+
+
+class TestSimulationConstruction(unittest.TestCase):
+
+    def test_raises_if_attacker_has_no_target(self):
+        """Precondition: every attacker must already have a target before
+        Simulation is constructed -- Simulation only allocates defenders."""
+        grid = Grid(5, 5, obstacles=[])
+        attacker = make_attacker(0, 0, target=None)  # target never set
+        defender = make_defender(1, 1)
+
+        with self.assertRaises(ValueError):
+            Simulation(grid, [defender], [attacker], [(2, 2)], RandomStrategy())
+
+    def test_allocation_runs_once_and_sets_defender_targets(self):
+        """Constructor should call strategy.allocate() and push the result
+        onto each defender via Agent.set_target()."""
+        grid = Grid(5, 5, obstacles=[])
+        defender = make_defender(0, 0)
+        target = (3, 3)
+        strategy = FixedStrategy({defender: target})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=10)
+
+        self.assertEqual(sim.assignment, {defender: target})
+        self.assertEqual(defender.get_target(), target)
+
+    def test_bottleneck_vertices_picked_up_when_strategy_provides_them(self):
+        """Simulation duck-types on `last_bottlenecks`: present -> copied
+        into self.bottleneck_vertices (and every snapshot)."""
+        grid = Grid(5, 5, obstacles=[])
+        defender = make_defender(0, 0)
+        target = (2, 2)
+        strategy = FixedStrategyWithBottlenecks({defender: target}, {(1, 1), (1, 2)})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=1)
+
+        self.assertEqual(sim.bottleneck_vertices, {(1, 1), (1, 2)})
+        self.assertEqual(sim.history[0].bottleneck_vertices, {(1, 1), (1, 2)})
+
+    def test_bottleneck_vertices_empty_for_strategy_without_attribute(self):
+        """Random/Greedy don't set last_bottlenecks -- getattr's default
+        should keep them working against the same Simulation, unmodified."""
+        grid = Grid(5, 5, obstacles=[])
+        defender = make_defender(0, 0)
+        strategy = RandomStrategy()
+
+        sim = Simulation(grid, [defender], [], [(2, 2)], strategy, max_steps=1)
+
+        self.assertEqual(sim.bottleneck_vertices, set())
+
+
+class TestInitialSnapshot(unittest.TestCase):
+    """Step 0 must capture pre-existing occupancy before anyone moves."""
+
+    def test_defender_already_on_target_is_protected_immediately(self):
+        grid = Grid(5, 5, obstacles=[])
+        target = (2, 2)
+        defender = make_defender(*target)  # starts exactly on its future target
+        strategy = FixedStrategy({defender: target})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=5)
+
+        self.assertIn(target, sim.protected_targets)
+        self.assertEqual(sim.history[0].step, 0)
+        self.assertTrue(sim.finished)  # only target already resolved
+        self.assertEqual(len(sim.history), 1)  # no stepping needed
+
+    def test_attacker_already_on_target_is_captured_immediately(self):
+        grid = Grid(5, 5, obstacles=[])
+        target = (2, 2)
+        attacker = make_attacker(*target, target=target)  # starts on its own target
+
+        sim = Simulation(grid, [], [attacker], [target], RandomStrategy(), max_steps=5)
+
+        self.assertIn(target, sim.captured_targets)
+        self.assertTrue(sim.finished)
+        self.assertEqual(len(sim.history), 1)
+
+
+class TestStepping(unittest.TestCase):
+
+    def test_defenders_move_before_attackers_each_tick(self):
+        """Matches the paper's turn-based framing: defenders move first."""
+        grid = Grid(5, 5, obstacles=[])
+        defender = make_defender(0, 0)
+        attacker = make_attacker(4, 4, target=(4, 4))  # already there, won't move
+        strategy = FixedStrategy({defender: (1, 1)})
+
+        sim = Simulation(grid, [defender], [attacker], [(1, 1)], strategy, max_steps=1)
+
+        order = []
+        original_move_one = sim._move_one
+
+        def spy(agent):
+            order.append(agent)
+            return original_move_one(agent)
+
+        with patch.object(sim, "_move_one", side_effect=spy):
+            sim.step()
+
+        self.assertEqual(order, [defender, attacker])
+
+    def test_defender_reaches_target_over_multiple_steps(self):
+        """On an open grid, LRA* replanning should converge on the shortest
+        (Manhattan) path: 3 steps to cover a distance of 3."""
+        grid = Grid(5, 5, obstacles=[])
+        defender = make_defender(0, 0)
+        target = (0, 3)
+        strategy = FixedStrategy({defender: target})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=10)
+        history = sim.run()
+
+        self.assertTrue(sim.finished)
+        self.assertEqual(sim.step_count, 3)
+        self.assertIn(target, sim.protected_targets)
+        self.assertIs(history, sim.history)
+
+    def test_agent_already_at_target_does_not_move(self):
+        grid = Grid(5, 5, obstacles=[])
+        target = (1, 1)
+        defender = make_defender(*target)
+        strategy = FixedStrategy({defender: target})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=3)
+        sim.step()
+
+        self.assertEqual(defender.get_position(), target)
+
+    def test_unreachable_target_hits_max_steps_without_resolution(self):
+        """A wall fully separating the defender from its target (same
+        layout as PathFinder's own test_no_path_exists) should leave the
+        target unresolved until max_steps forces the run to stop."""
+        obstacles = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
+        grid = Grid(5, 5, obstacles=obstacles)
+        defender = make_defender(0, 2)
+        target = (4, 2)
+        strategy = FixedStrategy({defender: target})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=3)
+        sim.run()
+
+        self.assertTrue(sim.finished)
+        self.assertEqual(sim.step_count, 3)
+        self.assertNotIn(target, sim.protected_targets)
+        self.assertNotIn(target, sim.captured_targets)
+        self.assertEqual(defender.get_position(), (0, 2))  # never moved
+
+    def test_step_returns_none_once_finished(self):
+        grid = Grid(5, 5, obstacles=[])
+        target = (1, 1)
+        defender = make_defender(*target)
+        strategy = FixedStrategy({defender: target})
+
+        sim = Simulation(grid, [defender], [], [target], strategy, max_steps=5)
+        self.assertTrue(sim.finished)  # resolved at construction time
+        self.assertIsNone(sim.step())
+
+
+class TestTargetResolution(unittest.TestCase):
+
+    def test_mixed_capture_and_protection(self):
+        """One target captured by an attacker, another protected by a
+        defender, in the same run."""
+        grid = Grid(10, 10, obstacles=[])
+        captured_target = (0, 0)
+        protected_target = (9, 9)
+
+        attacker = make_attacker(*captured_target, target=captured_target)
+        defender = make_defender(*protected_target)
+        strategy = FixedStrategy({defender: protected_target})
+
+        sim = Simulation(
+            grid,
+            [defender],
+            [attacker],
+            [captured_target, protected_target],
+            strategy,
+            max_steps=5,
+        )
+
+        self.assertEqual(sim.captured_targets, {captured_target})
+        self.assertEqual(sim.protected_targets, {protected_target})
+        self.assertTrue(sim.finished)
+
+
+class TestSnapshotAgentIds(unittest.TestCase):
+
+    def test_agent_ids_are_stable_and_disjoint_between_groups(self):
+        """_agent_ids enumerates defenders then attackers, so ids should be
+        stable across steps and unique across the whole roster."""
+        grid = Grid(5, 5, obstacles=[])
+        defenders = [make_defender(0, 0), make_defender(1, 0)]
+        attackers = [make_attacker(4, 4, target=(4, 4))]
+        strategy = FixedStrategy({defenders[0]: (2, 2), defenders[1]: (3, 3)})
+
+        sim = Simulation(
+            grid, defenders, attackers, [(2, 2), (3, 3)], strategy, max_steps=5
+        )
+        sim.step()
+
+        first_ids = {s.agent_id for s in sim.history[0].defenders + sim.history[0].attackers}
+        last_ids = {s.agent_id for s in sim.history[-1].defenders + sim.history[-1].attackers}
+        self.assertEqual(first_ids, last_ids)
+        self.assertEqual(len(first_ids), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()

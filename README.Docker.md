@@ -31,7 +31,7 @@ docker compose run --rm mapf-isp /bin/bash
 
 Then inside the container:
 ```bash
-python -m unittest discover -s . -p tests.py -v  # Run tests
+python -m unittest discover -s tests             # Run tests
 python                                           # Interactive Python shell
 ls -la /app                                      # Explore contents
 ```
