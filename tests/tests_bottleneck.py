@@ -31,12 +31,13 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
     # =====================================================================
     #
     # Layout:
-    # #######
-    # #A    #
-    # # #D# #
-    # # ### #
-    # #   #T#
-    # #######
+    # # # # # # # #
+    # # . . . . . #
+    # # . # D # . #
+    # # . # # # . #
+    # # A . . # . #
+    # # # # # # # #
+    
     def test_simple_gap(self):
         """
         Grid with two separate obstacle components separated by a clear vertical gap.
@@ -95,13 +96,13 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
     # =====================================================================
     #
     # Layout:
-    # #########
-    # # T    T#
-    # # # # ###
-    # #   # D #
-    # ### # ###
-    # #A  D  A#
-    # #########
+    # # # # # # # # # #
+    # # . T . . . . T #
+    # # . # . # . # # #
+    # # . . . # . D . #
+    # # # # . # . # # #
+    # # A . . D . . A #
+    # # # # # # # # # #
     #
     # Attacker at (1, 5) moving right towards (2, 1).
     # Attacker at (7, 5) moving left towards (7, 1).
