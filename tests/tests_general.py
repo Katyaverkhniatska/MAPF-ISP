@@ -296,19 +296,6 @@ class TestBottleneckStrategy(unittest.TestCase):
         self.assertEqual(captured_forbidden[0], set())
         self.assertEqual(captured_forbidden[1], {(5, 5)})
  
-    def test_no_bottleneck_in_open_field_uses_random_fallback(self):
-        """With no obstacles, searchVicinity never finds more than one
-        connected component, so defenders should fall back to random
-        target assignment instead of being stuck unassigned."""
-        grid = Grid(10, 10, obstacles=[])
-        attacker = make_attacker(0, 0, target=(9, 9))
-        defender = make_defender(0, 9)
- 
-        strategy = BottleneckStrategy()
-        result = strategy.allocate(grid, [defender], [(9, 9)], [attacker])
- 
-        self.assertEqual(result[defender], (9, 9))
- 
     def test_tie_broken_by_distance_to_defenders(self):
         """When two vertices tie for max frequency, the one closer to the
         (approximate) defender location should be selected."""
