@@ -33,19 +33,16 @@ class ControlPanel(ttk.Frame):
     def _handle_play(self):
         self.play_btn.config(state=tk.DISABLED)
         self.pause_btn.config(state=tk.NORMAL)
-        print("Play button clicked")
         self.on_play()
 
     def _handle_pause(self):
         self.play_btn.config(state=tk.NORMAL)
         self.pause_btn.config(state=tk.DISABLED)
-        print("Pause button clicked")
         self.on_pause()
 
     def set_stopped(self):
         self.play_btn.config(state=tk.NORMAL)
         self.pause_btn.config(state=tk.DISABLED)
-        print("Stopped")
         
     def update_step(self, current: int, total: int):
         self.step_label.config(text=f"{current} / {total}")

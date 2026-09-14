@@ -17,7 +17,7 @@ class GridCanvas(tk.Canvas):
     - Orange outline: bottleneck vertices
     """
 
-    CELL_SIZE = 52
+    CELL_SIZE = 48
 
     COLOR_PASSABLE        = "#FFFFFF"
     COLOR_OBSTACLE        = "#1A1A1A"

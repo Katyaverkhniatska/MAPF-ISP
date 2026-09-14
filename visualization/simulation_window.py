@@ -147,14 +147,12 @@ class SimulationWindow(tk.Tk):
 
     def _step_forward(self):
         self._pause()
-        print("Step forward button clicked")
         if self.history and self.current_step < len(self.history) - 1:
             self.current_step += 1
             self._refresh_display()
 
     def _step_back(self):
         self._pause()
-        print("Step back button clicked")
         if self.history and self.current_step > 0:
             self.current_step -= 1
             self._refresh_display()
@@ -181,20 +179,21 @@ class SimulationWindow(tk.Tk):
             targets   = [(3, 3), (3, 4)]
 
         elif key == "bottleneck_passage":
-            grid = Grid(7, 7, obstacles=[(3, 0), (3, 1), (3, 5), (3, 6)])
-            attackers = [Agent(0, 2, AgentType.ATTACKER), Agent(0, 4, AgentType.ATTACKER)]
-            defenders = [Agent(1, 2, AgentType.DEFENDER),
-                         Agent(1, 3, AgentType.DEFENDER),
-                         Agent(1, 4, AgentType.DEFENDER)]
-            targets   = [(5, 2), (5, 4)]
+            grid = Grid(10, 10, obstacles=[(5, 0), (5, 1), (5, 2), (6, 5), (6, 6), (6, 7), (6, 8), (6, 9)])
+            attackers = [Agent(0, 4, AgentType.ATTACKER), Agent(0, 6, AgentType.ATTACKER)]
+            defenders = [Agent(1, 4, AgentType.DEFENDER),
+                         Agent(1, 5, AgentType.DEFENDER),
+                         Agent(1, 6, AgentType.DEFENDER)]
+            targets   = [(9, 4), (9, 7)]
 
         else:  # complex_obstacles
-            obstacles = [(2,1),(2,2),(2,3),(4,0),(4,1),(4,2),(6,2),(6,3),(6,4)]
-            grid = Grid(8, 6, obstacles=obstacles)
+            obstacles = [(2,1),(2,2),(2,3),(2,6),(4,0),(4,1),(4,2),(6,2),(6,3),(6,4),
+                         (5, 6),(5,7)]
+            grid = Grid(10, 8, obstacles=obstacles)
             attackers = [Agent(0, 2, AgentType.ATTACKER), Agent(0, 4, AgentType.ATTACKER)]
             defenders = [Agent(1, 1, AgentType.DEFENDER),
                          Agent(1, 3, AgentType.DEFENDER),
                          Agent(1, 5, AgentType.DEFENDER)]
-            targets   = [(6, 1), (6, 4)]
+            targets   = [(9, 1), (9, 4)]
 
         return grid, attackers, defenders, targets

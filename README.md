@@ -39,8 +39,12 @@ MAP-ISP/
 |   ├── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
 |   ├── util_tests.py            # ✅ Util and helper methods for testing
 │
-├── visualization/
-│   └── simulation_window.py     # ⏳ Tkinter GUI main window (not yet implemented)
+├── visualization/               # 📝
+│   └── simulation_window.py     # Tkinter GUI main window
+│   └── control_panel.py         # GUI controls panel
+│   └── grid_canvas.py           # Main canvas that renders grid
+│   └── scenario_selector.py     # Panel for selecting maps and strategies
+│   └── statistics_panel.py      # Panel showing statistics values
 │
 ├── scenarios/
 │   └── scenario_loader.py       # ⏳ JSON/CSV scenario parsing (not yet implemented)
@@ -54,7 +58,7 @@ MAP-ISP/
 └── .gitignore                   # Git ignore rules
 ```
 
-**Legend:** ✅ = Implemented and tested | ⏳ = Planned, not yet implemented | 📝 = New in this version
+**Legend:** ✅ = Implemented and tested |  ⏳ = Planned, not yet implemented | 📝 = New in this version
 
 ---
 
@@ -127,20 +131,16 @@ MAP-ISP/
   - **Test Coverage:** Statistics aggregation verified on mock snapshots
   - **Note:** All metrics are read-only accessors; no mutations
 
----
-
-### ⏳ Not Yet Implemented (Frontend & Integration)
-
-#### Phase 4: Tkinter GUI (Next Priority)
+#### Phase 4: Tkinter GUI (Current Priority)
 - `SimulationWindow` — Main application window
-  - File dialog for scenario selection
+  - File dialog for scenario selection (not yet implemented)
   - Strategy selection dropdown (Random, Greedy, Bottleneck)
   - Simulation execution trigger
   - Play/pause/step forward/step backward controls
   - Current step display
 
 - `GridCanvas` — Custom canvas widget for visualization
-  - Side-by-side grid rendering (two strategies simultaneously)
+  - Side-by-side grid rendering (two strategies simultaneously) (not yet implemented, available for a single one)
   - Color coding: obstacles (black), attackers (red), defenders (blue), empty targets (white), captured targets (dark red), protected targets (green)
   - Live rendering as user steps through history
 
@@ -155,6 +155,9 @@ MAP-ISP/
   - Success rate (%)
   - Average time to capture/protection
   - Defender efficiency
+---
+
+### ⏳ Not Yet Implemented (Frontend & Integration)
 
 #### Phase 5: Scenario Management (Planned)
 - `ScenarioLoader` — Parse and validate input
@@ -182,7 +185,7 @@ MAP-ISP/
 - [x] Deterministic map tests for BottleneckStrategy & Simulation Engine (52 tests passing)
 
 ### Next (Immediate)
-- [ ] Implement Tkinter GUI components (`SimulationWindow`, `GridCanvas`)
+- [x] Implement Tkinter GUI components (`SimulationWindow`, `GridCanvas`)
 - [ ] Address professor feedback on centroid heuristic (optional experiment)
 - [x] Update README to reflect actual implementation
 
@@ -215,22 +218,18 @@ MAP-ISP/
 
 ## Running the Project
 
-### Current State (Backend Only)
-
 **Run core tests:**
 ```bash
 python -m unittest discover -s tests
 ```
 
-### Future (Complete Application)
-
 ```bash
 python main.py
 ```
 Then use the GUI to:
-1. Upload a scenario file (JSON/CSV)
-2. Select two allocation strategies
-3. Click "Run Simulation"
+1. Upload a scenario file (JSON/CSV) (not yet implemented, use pre-defined maps)
+2. Select two allocation strategies  (only one available now)
+3. Click "Load & Run"
 4. Use play/pause/step controls to explore the results
 
 ---
@@ -258,6 +257,8 @@ Then use the GUI to:
 - **Centroid heuristic:** When multiple vertices tie for maximum path frequency, picks the one closest to the centroid of available defenders. This is a reasonable interpretation of the paper's "approximate location of defenders," but alternatives (median position, closest to any defender) have not been empirically compared.
 - **Tie-breaking in gap detection:** BFS returns the shortest path between obstacle components; when multiple cells are equidistant, chooses the one closest to the frequency hotspot `w` for consistency and determinism.
 
+### Knows TODOs:
+- The logic of bottleneck implementation should be addressed –– when should we update the target's status as protected? When it reaches it's final state (bottleneck or target) and we check if no paths for attackers exist? Or when we achieve immediate results?
 ---
 
 ## Progress Tracking
@@ -273,8 +274,8 @@ Then use the GUI to:
 | BottleneckStrategy | ✅ Complete | ✅ 10+ passing | Methods tested; end-to-end (new) |
 | Simulation Engine | ✅ Complete | ✅ Passing unit and deterministic tests | Full pipeline working |
 | Statistics Calculator | ✅ Complete | ✅ Passing | All metrics functional |
-| Deterministic Map Tests | 📝 New | 3 | Structure defined, examples ready |
-| Tkinter GUI | ⏳ Planned | — | Phase 4 |
+| Deterministic Map Tests | 📝 New | 3 | Structure defined, examples ready, shall be tested more for some edge cases |
+| Tkinter GUI | 📝 New | - | The first working version exists, more features should be added |
 | Scenario Loader | ⏳ Planned | — | Phase 5 |
 | Result Export | ⏳ Planned | — | Phase 6 |
 

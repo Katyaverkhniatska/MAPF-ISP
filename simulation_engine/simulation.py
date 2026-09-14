@@ -107,7 +107,7 @@ class Simulation:
         unresolved = set(self.targets) - self.captured_targets - self.protected_targets
         if not unresolved or self.step_count >= self.max_steps:
             self.finished = True
-
+            
     # ------------------------------------------------------------------
     # Movement (LRA*: replan one step at a time against current occupancy)
     # ------------------------------------------------------------------
@@ -131,10 +131,6 @@ class Simulation:
             path = None
 
         if not path or len(path) < 2:
-            # For debugginf purposes
-            print(f"Step: {self.step_count}")
-            print(f"Warning: {agent.get_type()} {agent.get_position()} has no valid next step towards its target {target}.")
-            print(f"Path found: {path}")
             # blocked or already arrived -- stay put
             return
 
