@@ -13,9 +13,9 @@ A Python-based interactive visualization and comparison tool for exploring defen
 ```
 MAP-ISP/
 ├── core_components/
-│   ├── agent.py                 # ✅ Agent class (position, type, movement)
+│   ├── agent.py                 # ✅ Agent class (position, type, movement, target assignment)
 │   ├── agent_type.py            # ✅ AgentType enum (ATTACKER, DEFENDER)
-│   ├── grid.py                  # ✅ Grid class (environment, obstacles, pathfinding queries)
+│   ├── grid.py                  # ✅ Grid class (environment, obstacles)
 │   └── grid_availability.py     # ✅ GridAvailability enum (PASSABLE, OBSTACLE, TAKEN)
 │
 ├── allocation_strategies/
@@ -24,7 +24,7 @@ MAP-ISP/
 │   ├── greedy_strategy.py       # ✅ Greedy allocation
 │   └── bottleneck_strategy.py   # ✅ Bottleneck simulation allocation
 │
-├── simulation_engine/           📝
+├── simulation_engine/           
 │   ├── simulation.py            # ✅ Simulation orchestrator
 │   ├── step_snapshot.py         # ✅ State snapshot data class
 │   └── statistics_calculator.py # ✅ Metrics derivation
@@ -49,7 +49,7 @@ MAP-ISP/
 ├── scenarios/
 │   └── scenario_loader.py       # ⏳ JSON/CSV scenario parsing (not yet implemented)
 │
-├── main.py                      # ⏳ Application entry point (not yet implemented)
+├── main.py                      # Application entry point
 ├── requirements.txt             # ⏳ Python dependencies (not yet implemented)
 ├── README.md                    # This file
 ├── Dockerfile                   # Docker configuration

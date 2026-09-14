@@ -1,24 +1,7 @@
-"""
-Deterministic Map Tests for BottleneckStrategy.
-
-These tests use hand-designed grid layouts where the expected bottleneck(s)
-can be reasoned about manually, allowing us to verify that allocate() finds
-the correct (or at least defensible) defender positions.
-
-Pattern:
-  1. Define a grid layout as ASCII art (# = obstacle, space = passable, A/D = agent start, T = target)
-  2. Manually identify the bottleneck(s) — the gap(s) between obstacle groups through which attackers must pass
-  3. Set up agents and targets matching the diagram
-  4. Call strategy.allocate()
-  5. Assert that returned defenders are assigned to the identified bottleneck vertex/vertices
-"""
-
 import unittest
-from core_components.agent import Agent
-from core_components.agent_type import AgentType
-from core_components.grid import Grid, Vertex
+from core_components.grid import Grid
 from allocation_strategies.bottleneck_strategy import BottleneckStrategy
-from tests.util_tests import make_attacker, make_defender
+from tests_unit.util_tests import make_attacker, make_defender
 
 
 class TestBottleneckDeterministicMaps(unittest.TestCase):

@@ -1,5 +1,5 @@
 import unittest
-from tests.util_tests import make_attacker, make_defender
+from tests_unit.util_tests import make_attacker, make_defender
 from unittest.mock import patch
 from allocation_strategies.greedy_strategy import GreedyStrategy
 from allocation_strategies.random_strategy import RandomStrategy

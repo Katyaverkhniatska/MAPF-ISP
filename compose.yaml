@@ -1,9 +1,10 @@
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Docker Compose reference guide at
-# https://docs.docker.com/go/compose-spec-reference/
-
 services:
-  mapf-isp:
-    build:
-      context: .
-    # No ports needed for a CLI/test application
+  # Non-GUI test runner (Works 100% identically on Windows, macOS, Linux)
+  tests:
+    build: .
+    command: python -m unittest discover -s tests_unit
+
+  # Deterministic non-GUI tests (Works 100% identically on Windows, macOS, Linux)
+  tests-deterministic:
+    build: .
+    command: python -m unittest discover -s tests_deterministic

@@ -7,7 +7,7 @@ from core_components.agent import Agent
 from core_components.agent_type import AgentType
 from core_components.grid import Grid
 from simulation_engine.simulation import Simulation
-from tests.util_tests import make_attacker, make_defender, print_simulation_step, FixedStrategy, FixedStrategyWithBottlenecks
+from tests_unit.util_tests import make_attacker, make_defender, print_simulation_step, FixedStrategy, FixedStrategyWithBottlenecks
 
 
 class TestSimulationConstruction(unittest.TestCase):

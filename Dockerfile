@@ -36,5 +36,5 @@ USER appuser
 # Copy the source code into the container.
 COPY . .
 
-# Run the application.
+# Run the application (overriden by the compose.yaml)
 CMD python -m unittest discover -s tests
