@@ -42,6 +42,8 @@ class AStar:
         while len(self.open_set) > 0:
             # Get the cell with the smallest f value from the open list
             _, least_f_node = heapq.heappop(self.open_set)
+            if least_f_node in self.closed_set:
+                continue
 
             if least_f_node == self.goal:
                 return self.reconstruct_path(came_from, least_f_node)

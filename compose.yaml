@@ -1,10 +1,27 @@
 services:
-  # Non-GUI test runner (Works 100% identically on Windows, macOS, Linux)
-  tests:
+  # Graphical run (for displaying the Tkinter window on your desktop)
+  main:
+    build: .
+    environment:
+      - DISPLAY=host.docker.internal:0
+    command: python main.py
+
+  # Headless run (simulates display in memory without opening a window)
+  main-headless:
+    build: .
+    command: xvfb-run -a python main.py --headless
+
+  # Run unit tests only
+  tests-unit:
     build: .
     command: python -m unittest discover -s tests_unit
 
-  # Deterministic non-GUI tests (Works 100% identically on Windows, macOS, Linux)
+  # Run deterministic tests only
   tests-deterministic:
     build: .
     command: python -m unittest discover -s tests_deterministic
+
+  # Run all tests sequentially
+  tests-all:
+    build: .
+    command: sh -c "python -m unittest discover -s tests_unit && python -m unittest discover -s tests_deterministic"

@@ -20,7 +20,14 @@ docker compose build
 
 ### Run Tests Only (after build)
 ```bash
-docker compose up
+docker compose run --rm tests-unit              # unit tests
+docker compose run --rm tests-deterministic     # deterministic tests
+docker compose run --rm tests-all               # all tests
+```
+
+### Run Main script (after build)
+```bash
+docker compose run --rm main
 ```
 
 ### Interactive Shell
@@ -44,11 +51,6 @@ If you deploy this project to a cloud provider (e.g., for CI/CD):
 ```bash
 docker build --platform=linux/amd64 -t myregistry.com/mapf-isp .
 docker build --platform=linux/arm64 -t myregistry.com/mapf-isp .
-```
-
-**Push to a registry:**
-```bash
-docker push myregistry.com/mapf-isp
 ```
 
 For more details, see [Docker's getting started guide](https://docs.docker.com/go/get-started-sharing/).

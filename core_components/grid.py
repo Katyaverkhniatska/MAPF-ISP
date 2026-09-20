@@ -103,7 +103,7 @@ class Grid:
             elif name == "OBSTACLE":
                 return "#"
             elif name == "TAKEN":
-                return "A"
+                return "T"
             else:
                 return "?"
 
