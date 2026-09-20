@@ -47,8 +47,12 @@ class BottleneckStrategy(AllocationStrategy):
         targets: List[Vertex],
         attackers: List[Agent],
     ) -> Dict[Agent, Vertex]:
+        
         if not defenders:
             return {}
+
+        if not targets:
+            raise ValueError("Cannot allocate defenders: no targets available.")
 
         path_finder = PathFinder(grid)
 
