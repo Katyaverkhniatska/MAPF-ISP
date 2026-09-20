@@ -4,8 +4,15 @@ import heapq
 class AStar:
     def __init__(self, start : Vertex, goal : Vertex, grid : Grid):
         self.grid = grid
-        if not self.grid.is_passable(start) or not self.grid.is_passable(goal):
-            raise ValueError("Start or goal position is invalid or out of bounds.")
+        if not self.grid.is_in_bounds(start):
+            raise ValueError("Start position is not in bounds.")
+
+        if not self.grid.is_in_bounds(goal):
+            raise ValueError("Goal position is not in bounds.")
+
+        if not self.grid.is_passable(goal):
+            raise ValueError("Goal position is not passable.")
+        
         self.start = start
         self.goal = goal
 
@@ -35,6 +42,8 @@ class AStar:
         while len(self.open_set) > 0:
             # Get the cell with the smallest f value from the open list
             _, least_f_node = heapq.heappop(self.open_set)
+            if least_f_node in self.closed_set:
+                continue
 
             if least_f_node == self.goal:
                 return self.reconstruct_path(came_from, least_f_node)

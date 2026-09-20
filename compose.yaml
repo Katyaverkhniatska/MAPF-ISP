@@ -1,9 +1,27 @@
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Docker Compose reference guide at
-# https://docs.docker.com/go/compose-spec-reference/
-
 services:
-  mapf-isp:
-    build:
-      context: .
-    # No ports needed for a CLI/test application
+  # Graphical run (for displaying the Tkinter window on your desktop)
+  main:
+    build: .
+    environment:
+      - DISPLAY=host.docker.internal:0
+    command: python main.py
+
+  # Headless run (simulates display in memory without opening a window)
+  main-headless:
+    build: .
+    command: xvfb-run -a python main.py --headless
+
+  # Run unit tests only
+  tests-unit:
+    build: .
+    command: python -m unittest discover -s tests_unit
+
+  # Run deterministic tests only
+  tests-deterministic:
+    build: .
+    command: python -m unittest discover -s tests_deterministic
+
+  # Run all tests sequentially
+  tests-all:
+    build: .
+    command: sh -c "python -m unittest discover -s tests_unit && python -m unittest discover -s tests_deterministic"

@@ -1,3 +1,4 @@
+import itertools
 import random
 from typing import Dict, List, Set
 
@@ -34,11 +35,10 @@ class BottleneckStrategy(AllocationStrategy):
     baseline for comparison, not paper-accurate).
     """
 
-    MAX_VICINITY_RADIUS = 6  # expanding-square search limit around w
-
     def __init__(self, use_true_targets: bool = False):
         self.use_true_targets = use_true_targets
         self.attackers_starting_positions: Set[Vertex] = set()
+        self.VICINITY_RADIUS = 0
 
     def allocate(
         self,
@@ -55,6 +55,9 @@ class BottleneckStrategy(AllocationStrategy):
         self.attackers_starting_positions: Set[Vertex] = {a.get_position() for a in attackers}
         assignment: Dict[Agent, Vertex] = {}
 
+        max_vicinity_radius = max(grid.get_dimensions())  # upper bound on how far to search for a gap
+        self.VICINITY_RADIUS = max_vicinity_radius
+
         # δ⁰_A — fixed for the rest of this call, per Algorithm 1.
         guessed_targets = self._determine_attacker_targets(attackers, targets)
 
@@ -63,18 +66,15 @@ class BottleneckStrategy(AllocationStrategy):
                 grid, attackers, guessed_targets, forbidden, path_finder
             )
             if not paths:
-                print("No paths found for attackers; all are blocked or have no targets.")
                 # No attacker has a viable path at all; nothing left to exploit.
                 break
 
             frequency = self._vertex_frequency(paths)
-            print("Vertex frequency:")
-            print(frequency)
             w = self._select_frequent_vertex(frequency, available_defenders)
             print("The chosen vertex:")
             print(w)
 
-            bottleneck = self._search_vicinity(grid, w, forbidden)
+            bottleneck = self._search_vicinity(grid, w, forbidden, attackers, guessed_targets, paths, path_finder)
             print("Bottleneck:")
             print(bottleneck)
             if not bottleneck:
@@ -85,6 +85,8 @@ class BottleneckStrategy(AllocationStrategy):
             # can with what's left (the loop will then terminate naturally
             # since available_defenders becomes empty).
             chosen_defenders = available_defenders[: len(bottleneck)]
+            print(f"Chosen defenders (up to {len(bottleneck)}):")
+            print(chosen_defenders)
             bottleneck_vertices = list(bottleneck)[: len(chosen_defenders)]
 
             for defender, vertex in zip(chosen_defenders, bottleneck_vertices):
@@ -96,12 +98,19 @@ class BottleneckStrategy(AllocationStrategy):
         # Leftover defenders (no bottleneck left to block, or ran out of
         # bottlenecks before running out of defenders): assign at random,
         # as in the paper's assignToDefenders(Tavailable, Davailable).
-        # Sample WITHOUT replacement so leftover defenders spread across
-        # distinct targets instead of piling onto the same one.
-        random.shuffle(available_targets)
-        for defender, target in zip(available_defenders, available_targets):
-            assignment[defender] = target
+        if available_targets:
+            random.shuffle(available_targets)
+            # Cycle through available targets so every defender gets assigned
+            for defender, target in zip(available_defenders, itertools.cycle(available_targets)):
+                assignment[defender] = target
 
+            available_defenders = []
+
+        if available_defenders:
+            print(
+                f"Warning: {len(available_defenders)} defenders left unassigned; "
+                "not enough targets to assign them to."
+            )
         return assignment
 
     # ------------------------------------------------------------------
@@ -135,8 +144,6 @@ class BottleneckStrategy(AllocationStrategy):
     # ------------------------------------------------------------------
     # Step 1: simulate shortest paths of attackers to their targets
     # ------------------------------------------------------------------ 
-    
-    
     def _simulate_attacker_paths(
         self,
         grid: Grid,
@@ -157,13 +164,13 @@ class BottleneckStrategy(AllocationStrategy):
             for attacker in attackers:
                 start = attacker.get_position()
                 goal = guessed_targets.get(attacker)
-                print(f"Attacker at {start} heading for {goal}")
+                # print(f"Attacker at {start} heading for {goal}")
                 if goal is None or start == goal:
                     continue
                 try:
                     path = path_finder.find_path(start, goal)
                 except ValueError:
-                    print(f"No path found for attacker at {start} to goal {goal}")
+                    # print(f"No path found for attacker at {start} to goal {goal}")
                     path = None
                 
                 if path:
@@ -211,9 +218,18 @@ class BottleneckStrategy(AllocationStrategy):
         We approximate the defenders' location as the centroid of the
         currently available (unassigned) defenders.
         """
-        max_freq = max(frequency.values())
-        candidates = [v for v, f in frequency.items() 
-                      if f == max_freq and v not in self.attackers_starting_positions]
+
+        allowed_frequent = [(v, f) for (v, f) in frequency.items() if v not in self.attackers_starting_positions]
+
+        # All the paths were containing the starting vertices only, which inherently means agents were already in targets
+        if not allowed_frequent:
+            RuntimeError("No available positions for defenders")
+
+        allowed_frequent = dict(allowed_frequent)
+        
+        max_freq = max(allowed_frequent.values())
+        candidates = [v for v, f in frequency.items() if f == max_freq]
+
         if len(candidates) == 1:
             return candidates[0]
 
@@ -229,18 +245,153 @@ class BottleneckStrategy(AllocationStrategy):
     # Step 3: searchVicinity(w) - expanding square, look for a gap between
     # two separate groups (connected components) of obstacles
     # ------------------------------------------------------------------
-    def _search_vicinity(self, grid: Grid, w: Vertex, forbidden: Set[Vertex]) -> List[Vertex]:
+    def _search_vicinity(
+        self,
+        grid: Grid,
+        w: Vertex,
+        forbidden: Set[Vertex],
+        attackers: List[Agent],
+        guessed_targets: Dict[Agent, Vertex],
+        original_paths: List[List[Vertex]],
+        path_finder: PathFinder,
+    ) -> List[Vertex]:
+        """
+        Searches vicinity of hotspot 'w' using local obstacle component grouping.
+        """
         discovered_obstacles: Set[Vertex] = set()
 
-        for radius in range(1, self.MAX_VICINITY_RADIUS + 1):
+        for radius in range(1, max(self.VICINITY_RADIUS, 3) + 1):
+            # 1. Accumulate obstacles on the fringe ring (Chebyshev distance = radius)
             discovered_obstacles |= self._fringe_obstacles(grid, w, radius)
+            if len(discovered_obstacles) < 2:
+                continue
 
-            components = self._connected_components(discovered_obstacles)
+            # 2. Group obstacles LOCALLY within the current window bounds
+            # Prevents outer map borders from merging separate internal walls
+            components = self._local_obstacle_components(grid, discovered_obstacles, w, radius)
+
             if len(components) > 1:
+                # 3. Find shortest 4-connected passable path between local components
                 gap = self._shortest_gap_between_components(grid, components, forbidden, w)
-                if gap:
+                
+                # 4. Verify candidate gap actually alters attacker trajectories
+                if gap and self._is_real_bottleneck(
+                    grid, gap, forbidden, attackers, guessed_targets, original_paths, path_finder
+                ):
                     return gap
+
         return []
+
+    
+    def _local_obstacle_components(
+        self, grid: Grid, local_obstacles: Set[Vertex], w: Vertex, radius: int
+    ) -> List[Set[Vertex]]:
+        """
+        Groups local_obstacles into components using 8-connectivity, restricting
+        flood-fill strictly to vertices inside the Chebyshev window W(w, radius).
+        """
+        wx, wy = w
+        window_min_x, window_max_x = wx - radius, wx + radius
+        window_min_y, window_max_y = wy - radius, wy + radius
+
+        def in_window(pos: Vertex) -> bool:
+            x, y = pos
+            return window_min_x <= x <= window_max_x and window_min_y <= y <= window_max_y
+
+        unvisited = set(local_obstacles)
+        components = []
+
+        while unvisited:
+            seed = unvisited.pop()
+            component = {seed}
+            queue = [seed]
+
+            while queue:
+                curr = queue.pop()
+                cx, cy = curr
+
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        if dx == 0 and dy == 0:
+                            continue
+                        nbr = (cx + dx, cy + dy)
+                        if (
+                            in_window(nbr)
+                            and grid.is_in_bounds(nbr)
+                            and grid.is_obstacle(nbr)
+                        ):
+                            if nbr in unvisited:
+                                component.add(nbr)
+                                unvisited.remove(nbr)
+                                queue.append(nbr)
+
+            components.append(component)
+
+        return components
+
+    def _global_obstacle_components(self, grid: Grid, local_obstacles: Set[Vertex]) -> List[Set[Vertex]]:
+        """
+        Clusters local_obstacles into components based on whether they are connected 
+        via ANY continuous 8-connected obstacle path across the full grid.
+        """
+        unvisited = set(local_obstacles)
+        components = []
+
+        while unvisited:
+            seed = unvisited.pop()
+            component = {seed}
+            
+            # Flood-fill across the global grid obstacle map starting from seed
+            queue = [seed]
+            visited_global = {seed}
+
+            while queue:
+                curr = queue.pop()
+                cx, cy = curr
+                
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        if dx == 0 and dy == 0:
+                            continue
+                        nbr = (cx + dx, cy + dy)
+                        if grid.is_in_bounds(nbr) and grid.is_obstacle(nbr) and nbr not in visited_global:
+                            visited_global.add(nbr)
+                            queue.append(nbr)
+                            if nbr in unvisited:
+                                component.add(nbr)
+                                unvisited.remove(nbr)
+
+            components.append(component)
+
+        return components
+
+    def _is_real_bottleneck(
+        self,
+        grid: Grid,
+        candidate_gap: List[Vertex],
+        forbidden: Set[Vertex],
+        attackers: List[Agent],
+        guessed_targets: Dict[Agent, Vertex],
+        original_paths: List[List[Vertex]],
+        path_finder: PathFinder,
+    ) -> bool:
+        """
+        Paper Section 4.3: Validates candidate bottleneck by re-simulating paths.
+        Returns True if blocking candidate_gap changes attacker paths or path lengths.
+        """
+        test_forbidden = forbidden | set(candidate_gap)
+        new_paths = self._simulate_attacker_paths(
+            grid, attackers, guessed_targets, test_forbidden, path_finder
+        )
+
+        # If attackers are completely blocked or their path lengths change, it is a true bottleneck
+        if len(new_paths) != len(original_paths):
+            return True
+
+        orig_costs = [len(p) for p in original_paths]
+        new_costs = [len(p) for p in new_paths]
+
+        return orig_costs != new_costs
 
     def _fringe_obstacles(self, grid: Grid, center: Vertex, radius: int) -> Set[Vertex]:
         """Obstacle cells lying on the square 'ring' at Chebyshev distance == radius from center."""
@@ -258,7 +409,7 @@ class BottleneckStrategy(AllocationStrategy):
 
     def _connected_components(self, obstacles: Set[Vertex]) -> List[Set[Vertex]]:
         """
-        Groups obstacle cells into connected components under 8-connectivity,
+        Groups obstacle cells into connected components under 4-connectivity,
         per the paper's footnote: two cells are 'in distance 1' if they share
         at least one point (i.e. including diagonal neighbors).
         """
@@ -297,20 +448,10 @@ class BottleneckStrategy(AllocationStrategy):
         """
         Finds the shortest path of passable, non-forbidden cells connecting
         one obstacle component to another (the "gap" / bottleneck itself),
-        via multi-source BFS from the first component to any cell adjacent
-        to a different component.
+        via multi-source BFS.
 
-        When several cells are tied for the shortest such path, the tie is
-        broken by picking whichever tied cell is closest to `w` — the
-        frequency hotspot that triggered this vicinity search in the first
-        place — rather than whichever cell a fixed dx/dy loop order happens
-        to enqueue first. Without this, cells that are diagonally adjacent
-        to an obstacle (touches_other_component uses 8-connectivity, per
-        the paper's footnote on obstacle grouping) can tie with, and be
-        returned ahead of, the cell that actually sits directly between the
-        two obstacle groups — even though the latter is the more natural
-        "real" gap and the one closest to where the attacker traffic was
-        concentrated.
+        - Obstacle proximity uses 8-connectivity (sharing at least one vertex).
+        - Grid path propagation uses 4-connectivity (orthogonal agent steps).
         """
         first, *rest = components
         other_obstacles = set().union(*rest) if rest else set()
@@ -318,30 +459,31 @@ class BottleneckStrategy(AllocationStrategy):
             return []
 
         def passable(pos: Vertex) -> bool:    
-            if not pos in forbidden:
+            if pos not in forbidden:
                 return grid.is_passable(pos)
             return False
 
         def touches_other_component(pos: Vertex) -> bool:
             x, y = pos
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                if (x + dx, y + dy) in other_obstacles:
-                    return True
+            # Corrected: Check all 8 neighboring directions for obstacle contact
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    if (x + dx, y + dy) in other_obstacles:
+                        return True
             return False
 
         def dist_to_w(pos: Vertex) -> float:
             return (pos[0] - w[0]) ** 2 + (pos[1] - w[1]) ** 2
 
-        # Multi-source BFS from all passable cells adjacent to `first`,
-        # processed level-by-level so we can collect every cell that
-        # touches the other component at the minimum depth, instead of
-        # stopping at the first one dequeued.
         from collections import deque
 
         dist: Dict[Vertex, int] = {}
-        parent: Dict[Vertex, Vertex | None]= {}
+        parent: Dict[Vertex, Vertex | None] = {}
         queue = deque()
 
+        # Seed initial passable cells 8-adjacent to the first obstacle component
         for ox, oy in first:
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
@@ -360,9 +502,6 @@ class BottleneckStrategy(AllocationStrategy):
             current = queue.popleft()
             depth = dist[current]
 
-            # BFS processes cells in non-decreasing depth order, so once
-            # we've moved past the depth at which a solution was found,
-            # every remaining candidate is farther and can be ignored.
             if best_depth is not None and depth > best_depth:
                 break
 
@@ -371,12 +510,11 @@ class BottleneckStrategy(AllocationStrategy):
                     best_depth = depth
                 if depth == best_depth:
                     best_candidates.append(current)
-                # A touching cell is a terminal candidate; don't expand
-                # past it, but other same-depth cells still need checking.
                 continue
 
             cx, cy = current
-            for dx, dy in [(-1, 0), (0, 1), (0, -1), (1, 0)]:
+            # Path traversal across empty grid spaces strictly uses 4-connectivity
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 neighbor = (cx + dx, cy + dy)
                 if passable(neighbor) and neighbor not in dist:
                     dist[neighbor] = depth + 1

@@ -7,7 +7,7 @@ from core_components.agent import Agent
 from core_components.agent_type import AgentType
 from core_components.grid import Grid
 from simulation_engine.simulation import Simulation
-from tests.util_tests import make_attacker, make_defender, print_simulation_step, FixedStrategy, FixedStrategyWithBottlenecks
+from tests_unit.util_tests import make_attacker, make_defender, print_simulation_step, FixedStrategy, FixedStrategyWithBottlenecks
 
 
 class TestSimulationConstruction(unittest.TestCase):
@@ -16,8 +16,8 @@ class TestSimulationConstruction(unittest.TestCase):
         """Precondition: every attacker must already have a target before
         Simulation is constructed -- Simulation only allocates defenders."""
         grid = Grid(5, 5, obstacles=[])
-        attacker = make_attacker(0, 0, target=None)  # target never set
-        defender = make_defender(1, 1)
+        attacker = make_attacker(0, 0, target=None, grid=grid)  # target never set
+        defender = make_defender(1, 1, grid=grid)
 
         with self.assertRaises(ValueError):
             Simulation(grid, [defender], [attacker], [(2, 2)], RandomStrategy())
@@ -26,7 +26,7 @@ class TestSimulationConstruction(unittest.TestCase):
         """Constructor should call strategy.allocate() and push the result
         onto each defender via Agent.set_target()."""
         grid = Grid(5, 5, obstacles=[])
-        defender = make_defender(0, 0)
+        defender = make_defender(0, 0, grid=grid)
         target = (3, 3)
         strategy = FixedStrategy({defender: target})
 
@@ -39,7 +39,7 @@ class TestSimulationConstruction(unittest.TestCase):
         """Simulation duck-types on `last_bottlenecks`: present -> copied
         into self.bottleneck_vertices (and every snapshot)."""
         grid = Grid(5, 5, obstacles=[])
-        defender = make_defender(0, 0)
+        defender = make_defender(0, 0, grid=grid)
         target = (2, 2)
         strategy = FixedStrategyWithBottlenecks({defender: target}, {(1, 1), (1, 2)})
 
@@ -52,7 +52,7 @@ class TestSimulationConstruction(unittest.TestCase):
         """Random/Greedy don't set last_bottlenecks -- getattr's default
         should keep them working against the same Simulation, unmodified."""
         grid = Grid(5, 5, obstacles=[])
-        defender = make_defender(0, 0)
+        defender = make_defender(0, 0, grid=grid)
         strategy = RandomStrategy()
 
         sim = Simulation(grid, [defender], [], [(2, 2)], strategy, max_steps=1)
@@ -66,7 +66,7 @@ class TestInitialSnapshot(unittest.TestCase):
     def test_defender_already_on_target_is_protected_immediately(self):
         grid = Grid(5, 5, obstacles=[])
         target = (2, 2)
-        defender = make_defender(*target)  # starts exactly on its future target
+        defender = make_defender(*target, grid=grid)  # starts exactly on its future target
         strategy = FixedStrategy({defender: target})
 
         sim = Simulation(grid, [defender], [], [target], strategy, max_steps=5)
@@ -79,7 +79,7 @@ class TestInitialSnapshot(unittest.TestCase):
     def test_attacker_already_on_target_is_captured_immediately(self):
         grid = Grid(5, 5, obstacles=[])
         target = (2, 2)
-        attacker = make_attacker(*target, target=target)  # starts on its own target
+        attacker = make_attacker(*target, target=target, grid=grid)  # starts on its own target
 
         sim = Simulation(grid, [], [attacker], [target], RandomStrategy(), max_steps=5)
 
@@ -93,8 +93,8 @@ class TestStepping(unittest.TestCase):
     def test_defenders_move_before_attackers_each_tick(self):
         """Matches the paper's turn-based framing: defenders move first."""
         grid = Grid(5, 5, obstacles=[])
-        defender = make_defender(0, 0)
-        attacker = make_attacker(4, 4, target=(4, 4))  # already there, won't move
+        defender = make_defender(0, 0, grid=grid)
+        attacker = make_attacker(4, 4, target=(4, 4), grid=grid)  # already there, won't move
         strategy = FixedStrategy({defender: (1, 1)})
 
         sim = Simulation(grid, [defender], [attacker], [(1, 1)], strategy, max_steps=1)
@@ -115,7 +115,7 @@ class TestStepping(unittest.TestCase):
         """On an open grid, LRA* replanning should converge on the shortest
         (Manhattan) path: 3 steps to cover a distance of 3."""
         grid = Grid(5, 5, obstacles=[])
-        defender = make_defender(0, 0)
+        defender = make_defender(0, 0, grid=grid)
         target = (0, 3)
         strategy = FixedStrategy({defender: target})
 
@@ -130,7 +130,7 @@ class TestStepping(unittest.TestCase):
     def test_agent_already_at_target_does_not_move(self):
         grid = Grid(5, 5, obstacles=[])
         target = (1, 1)
-        defender = make_defender(*target)
+        defender = make_defender(*target, grid=grid)
         strategy = FixedStrategy({defender: target})
 
         sim = Simulation(grid, [defender], [], [target], strategy, max_steps=3)
@@ -144,7 +144,7 @@ class TestStepping(unittest.TestCase):
         target unresolved until max_steps forces the run to stop."""
         obstacles = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
         grid = Grid(5, 5, obstacles=obstacles)
-        defender = make_defender(0, 2)
+        defender = make_defender(0, 2, grid=grid)
         target = (4, 2)
         strategy = FixedStrategy({defender: target})
 
@@ -160,7 +160,7 @@ class TestStepping(unittest.TestCase):
     def test_step_returns_none_once_finished(self):
         grid = Grid(5, 5, obstacles=[])
         target = (1, 1)
-        defender = make_defender(*target)
+        defender = make_defender(*target, grid=grid)
         strategy = FixedStrategy({defender: target})
 
         sim = Simulation(grid, [defender], [], [target], strategy, max_steps=5)
@@ -177,8 +177,8 @@ class TestTargetResolution(unittest.TestCase):
         captured_target = (0, 0)
         protected_target = (9, 9)
 
-        attacker = make_attacker(*captured_target, target=captured_target)
-        defender = make_defender(*protected_target)
+        attacker = make_attacker(*captured_target, target=captured_target, grid=grid)
+        defender = make_defender(*protected_target, grid=grid)
         strategy = FixedStrategy({defender: protected_target})
 
         sim = Simulation(
@@ -201,8 +201,8 @@ class TestSnapshotAgentIds(unittest.TestCase):
         """_agent_ids enumerates defenders then attackers, so ids should be
         stable across steps and unique across the whole roster."""
         grid = Grid(5, 5, obstacles=[])
-        defenders = [make_defender(0, 0), make_defender(1, 0)]
-        attackers = [make_attacker(4, 4, target=(4, 4))]
+        defenders = [make_defender(0, 0, grid=grid), make_defender(1, 0, grid=grid)]
+        attackers = [make_attacker(4, 4, target=(4, 4), grid=grid)]
         strategy = FixedStrategy({defenders[0]: (2, 2), defenders[1]: (3, 3)})
 
         sim = Simulation(
@@ -312,6 +312,48 @@ class TestSimulationDeterministic(unittest.TestCase):
             len(sim.protected_targets), 1,
             "At least one target should be protected by defender bottleneck allocation"
         )
+
+    def test_no_bottleneck_open_space(self):
+        """
+        Open space with no obstacle groups -> no bottleneck.
+        Strategy should fall back to random assignment.
+        """
+        print("\nRunning test_no_bottleneck_open_space...")
+        width, height = 7, 7
+        obstacles = []
+        grid = Grid(width, height, obstacles)
+
+        t1, t2 = (3, 3), (3, 4)
+        targets = [t1, t2]
+
+        a1 = Agent(0, 3, AgentType.ATTACKER)
+        a1.set_target(t1)
+        a2 = Agent(0, 4, AgentType.ATTACKER)
+        a2.set_target(t2)
+        attackers = [a1, a2]
+
+        d1 = Agent(6, 3, AgentType.DEFENDER)
+        d2 = Agent(6, 4, AgentType.DEFENDER)
+        defenders = [d1, d2]
+
+        strategy = BottleneckStrategy(use_true_targets=True)
+        sim = Simulation(grid, defenders, attackers, targets, strategy, max_steps=10)
+
+        print("\n==================================================")
+        print("TEST 3: No Bottleneck (Open Space)")
+        print("==================================================")
+
+        # Print initial state (Step 0)
+        print_simulation_step(grid, sim.history[0], "Initial State (Step 0)")
+
+        # Run simulation tick-by-tick and display
+        while not sim.finished:
+            snapshot = sim.step()
+            if snapshot:
+                print_simulation_step(grid, snapshot)
+
+        self.assertTrue(sim.finished)
+
 
 if __name__ == "__main__":
     unittest.main()

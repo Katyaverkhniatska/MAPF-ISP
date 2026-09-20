@@ -107,7 +107,7 @@ class Simulation:
         unresolved = set(self.targets) - self.captured_targets - self.protected_targets
         if not unresolved or self.step_count >= self.max_steps:
             self.finished = True
-
+            
     # ------------------------------------------------------------------
     # Movement (LRA*: replan one step at a time against current occupancy)
     # ------------------------------------------------------------------
@@ -125,16 +125,13 @@ class Simulation:
         if target is None or pos == target:
             return
 
-        # Free the agent's own cell so its own A* search doesn't treat
-        # itself as an obstacle.
-        self.grid.unmark_taken(pos)
         try:
             path = self.path_finder.find_path(pos, target)
         except ValueError:
             path = None
 
         if not path or len(path) < 2:
-            self.grid.mark_taken(pos)  # blocked or already arrived -- stay put
+            # blocked or already arrived -- stay put
             return
 
         next_pos = path[1]
@@ -142,9 +139,9 @@ class Simulation:
         # (Bottleneck already relies on this), so this should be
         # unreachable -- kept as a safety net against future changes.
         if self.grid.is_taken(next_pos) or self.grid.is_obstacle(next_pos):
-            self.grid.mark_taken(pos)
             return
 
+        self.grid.unmark_taken(pos)
         agent.move_to(*next_pos)
         self.grid.mark_taken(next_pos)
 
@@ -173,7 +170,7 @@ class Simulation:
                             if path:
                                 attacker_can_reach = True
                                 break
-                        except ValueError:
+                        except ValueError as e:
                             pass
 
                 # If no attacker can reach the target, meaning that defenders 
