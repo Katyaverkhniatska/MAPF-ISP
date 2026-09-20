@@ -26,8 +26,11 @@ class GreedyStrategy(AllocationStrategy):
             Attackers are not considered in this strategy.
             Assignment is not globally optimal — it is greedy per defender.
         """
-        if not defenders or not targets:
+        if not defenders:
             return {}
+
+        if not targets:
+            raise ValueError("Cannot allocate defenders: no targets available.")
 
         available_targets = targets.copy()
         assignment = {}

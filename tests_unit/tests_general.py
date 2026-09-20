@@ -132,12 +132,12 @@ class TestRandomStrategy(unittest.TestCase):
         self.assertEqual(result, {})
 
     def test_empty_targets(self):
-        """Returns empty dict when no targets"""
+        """Raises an error when no targets"""
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid)]
         strategy = RandomStrategy()
-        result = strategy.allocate(grid, defenders, [], [])
-        self.assertEqual(result, {})
+        with self.assertRaises(ValueError):
+            strategy.allocate(grid, defenders, [], [])
 
 
 class TestGreedyStrategy(unittest.TestCase):
@@ -186,13 +186,12 @@ class TestGreedyStrategy(unittest.TestCase):
         self.assertEqual(result, {})
 
     def test_empty_targets(self):
-        """Returns empty dict when no targets"""
+        """Raises an error when no targets"""
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid)]
         strategy = GreedyStrategy()
-        result = strategy.allocate(grid, defenders, [], [])
-        self.assertEqual(result, {})
-
+        with self.assertRaises(ValueError):
+            strategy.allocate(grid, defenders, [], [])
 
 
 class TestBottleneckStrategy(unittest.TestCase):
@@ -208,12 +207,12 @@ class TestBottleneckStrategy(unittest.TestCase):
         self.assertEqual(result, {})
  
     def test_empty_targets(self):
-        """Returns empty dict when no targets and no attackers"""
+        """Raises an error when no targets were given"""
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid)]
         strategy = BottleneckStrategy()
-        result = strategy.allocate(grid, defenders, [], [])
-        self.assertEqual(result, {})
+        with self.assertRaises(ValueError):
+            strategy.allocate(grid, defenders, [], [])
  
     def test_no_attackers_falls_back_to_random_assignment(self):
         """With no attackers there are no paths to simulate, so the loop

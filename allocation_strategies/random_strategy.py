@@ -25,8 +25,11 @@ class RandomStrategy(AllocationStrategy):
             will share a target. If there are more targets than defenders,
             some targets will be left unassigned.
         """
-        if not defenders or not targets:
+        if not defenders:
             return {}
+
+        if not targets:
+            raise ValueError("Cannot allocate defenders: no targets available.")
 
         shuffled_targets = targets.copy()
         random.shuffle(shuffled_targets)
