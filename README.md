@@ -222,7 +222,8 @@ MAP-ISP/
 
 **Run core tests:**
 ```bash
-python -m unittest discover -s tests
+python -m unittest discover -s tests_unit
+python -m unittest discover -s tests_deterministic
 ```
 
 ```bash
@@ -254,29 +255,26 @@ Then use the GUI to:
 ### Known Implementation Details
 
 #### BottleneckStrategy
-- Uses **4-connectivity** for obstacle grouping
+- Uses **8-connectivity** for obstacle grouping
 - Uses **4-connectivity** for agent movement (only orthogonal moves), matching the paper's grid model
 - **Centroid heuristic:** When multiple vertices tie for maximum path frequency, picks the one closest to the centroid of available defenders. This is a reasonable interpretation of the paper's "approximate location of defenders," but alternatives (median position, closest to any defender) have not been empirically compared.
 - **Tie-breaking in gap detection:** BFS returns the shortest path between obstacle components; when multiple cells are equidistant, chooses the one closest to the frequency hotspot `w` for consistency and determinism.
 
-### Knows TODOs:
-- The logic of bottleneck implementation should be addressed –– when should we update the target's status as protected? When it reaches it's final state (bottleneck or target) and we check if no paths for attackers exist? Or when we achieve immediate results?
 ---
 
 ## Progress Tracking
 
 | Component | Status | Tests | Notes |
 |-----------|--------|-------|-------|
-| Grid | ✅ Complete | ✅ 15+ passing | Full feature set |
-| Agent | ✅ Complete | ✅ Passing | Basic movement, target assignment |
-| PathFinder (A*) | ✅ Complete | ✅ 10 passing | Production-ready |
+| Grid | ✅ Complete | - | Full feature set |
+| Agent | ✅ Complete | - | Basic movement, target assignment |
+| PathFinder (A*) | ✅ Complete | ✅ 9 passing | Production-ready |
 | AllocationStrategy (base) | ✅ Complete | — | Interface defined |
-| RandomStrategy | ✅ Complete | ✅ Passing | Deterministic with seed |
-| GreedyStrategy | ✅ Complete | ✅ Passing | Correct distance-based assignment |
-| BottleneckStrategy | ✅ Complete | ✅ 10+ passing | Methods tested; end-to-end (new) |
-| Simulation Engine | ✅ Complete | ✅ Passing unit and deterministic tests | Full pipeline working |
-| Statistics Calculator | ✅ Complete | ✅ Passing | All metrics functional |
-| Deterministic Map Tests | 📝 New | 3 | Structure defined, examples ready, shall be tested more for some edge cases |
+| RandomStrategy | ✅ Complete | ✅ 4 Tests Passing | Deterministic with seed |
+| GreedyStrategy | ✅ Complete | ✅ 5 Tests Passing | Correct distance-based assignment |
+| BottleneckStrategy | ✅ Complete | ✅ 13 Unit and 8 Deterministic Passing | Methods tested; end-to-end |
+| Simulation Engine | ✅ Complete | ✅ 13 Unit Tests and 4 Deterministic tests Passing | Full pipeline working |
+| Statistics Calculator | ✅ Complete | - | All metrics functional |
 | Tkinter GUI | 📝 New | - | The first working version exists, more features should be added |
 | Scenario Loader | ⏳ Planned | — | Phase 5 |
 | Result Export | ⏳ Planned | — | Phase 6 |
