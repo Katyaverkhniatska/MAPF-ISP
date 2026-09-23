@@ -50,9 +50,6 @@ class BottleneckStrategy(AllocationStrategy):
             paths = self._simulate_attacker_paths(
                 grid, attackers, guessed_targets, forbidden, path_finder
             )
-            print("Paths:")
-            for p in paths:
-                print(f"    {p}")
             if not paths:
                 break
 
@@ -61,9 +58,9 @@ class BottleneckStrategy(AllocationStrategy):
             if not frequency:
                 break
 
-            print(f"\nFrequencies: ")
-            for V in frequency.keys():
-                print(f"    vertex: {V}, freq.: {frequency.get(V)}")
+            # print(f"\nFrequencies: ")
+            # for V in frequency.keys():
+                # print(f"    vertex: {V}, freq.: {frequency.get(V)}")
 
             # Step 3: Select w in argmax f(v) closest to defender centroid
             w = self._select_frequent_vertex(frequency, available_defenders)
@@ -255,17 +252,17 @@ class BottleneckStrategy(AllocationStrategy):
         forbidden: Set[Vertex],
         w: Vertex,
     ) -> List[Vertex]:
-        print(f"\nIn _shortest_gap_between_components")
-        print(f"W: {w}")
-        print("Components:")
-        for c in components:
-            print(f"    {c}")
+        # print(f"\nIn _shortest_gap_between_components")
+        # print(f"W: {w}")
+        # print("Components:")
+        # for c in components:
+        #     print(f"    {c}")
         first, *rest = components
-        print(f"Fist: {first}")
+        # print(f"Fist: {first}")
         other_obstacles = set().union(*rest) if rest else set()
         if not other_obstacles:
             return []
-        print(f"Other obstacles: {other_obstacles}")
+        # print(f"Other obstacles: {other_obstacles}")
 
         def passable(pos: Vertex) -> bool:
             return pos not in forbidden and grid.is_passable(pos)
