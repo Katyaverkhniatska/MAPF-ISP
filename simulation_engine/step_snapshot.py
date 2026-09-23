@@ -23,8 +23,8 @@ class StepSnapshot:
     attackers: List[AgentSnapshot]
     defenders: List[AgentSnapshot]
     targets: List[Vertex]
-    captured_targets: Set[Vertex] = field(default_factory=set)   # attacker got there first
-    protected_targets: Set[Vertex] = field(default_factory=set)  # defender got there first
+    captured_targets: Set[Vertex] = field(default_factory=set)
+    protected_targets: Set[Vertex] = field(default_factory=set)
     assignment: Dict[Agent, Vertex] = field(default_factory=dict)
     bottleneck_vertices: Set[Vertex] = field(default_factory=set)
 

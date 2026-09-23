@@ -94,7 +94,7 @@ class SimulationWindow(tk.Tk):
             strategy = {
                 "Random":     RandomStrategy(),
                 "Greedy":     GreedyStrategy(),
-                "Bottleneck": BottleneckStrategy(use_true_targets=True),
+                "Bottleneck": BottleneckStrategy(use_true_targets=False),
             }[strategy_name]
 
             sim = Simulation(grid, defenders, attackers, targets, strategy, max_steps=50)
@@ -171,29 +171,50 @@ class SimulationWindow(tk.Tk):
     # -------------------- SCENARIOS --------------------
 
     def _build_scenario(self, key: str):
+        def make_attacker(x, y, grid: Grid):
+            """Build an attacker and also marks the attacker's position as taken in the grid."""
+            attacker = Agent(x, y, AgentType.ATTACKER)
+            grid.mark_taken(attacker.get_position())
+            return attacker
+
+        def make_defender(x, y):
+            """Build a defender."""
+            defender = Agent(x, y, AgentType.DEFENDER)
+            return defender
+        
         """Returns (Grid, attackers, defenders, targets)."""
         if key == "empty_7x7":
             grid = Grid(7, 7, obstacles=[])
-            attackers = [Agent(0, 3, AgentType.ATTACKER), Agent(0, 4, AgentType.ATTACKER)]
-            defenders = [Agent(6, 3, AgentType.DEFENDER), Agent(6, 4, AgentType.DEFENDER)]
+            attackers = [make_attacker(0, 3, grid), make_attacker(0, 4, grid)]
+            defenders = [make_defender(6, 3), make_defender(6, 4)]
             targets   = [(3, 3), (3, 4)]
 
         elif key == "bottleneck_passage":
             grid = Grid(10, 10, obstacles=[(5, 0), (5, 1), (5, 2), (6, 5), (6, 6), (6, 7), (6, 8), (6, 9)])
-            attackers = [Agent(0, 4, AgentType.ATTACKER), Agent(0, 6, AgentType.ATTACKER)]
-            defenders = [Agent(1, 4, AgentType.DEFENDER),
-                         Agent(1, 5, AgentType.DEFENDER),
-                         Agent(1, 6, AgentType.DEFENDER)]
+            attackers = [make_attacker(0, 4, grid), make_attacker(0, 6, grid)]
+            defenders = [make_defender(1, 4),
+                         make_defender(1, 5),
+                         make_defender(1, 6)]
             targets   = [(9, 4), (9, 7)]
 
-        else:  # complex_obstacles
-            obstacles = [(2,1),(2,2),(2,3),(2,6),(4,0),(4,1),(4,2),(6,2),(6,3),(6,4),
-                         (5, 6),(5,7)]
+        elif key == "complex_obstacles_a":  # complex_obstacles
+            obstacles = [(2,1), (2,2), (2,3), (2,6), (4,0), (4,1), (4,2), (5, 6),
+                         (5,7), (6,2), (6,3), (6,4)]
             grid = Grid(10, 8, obstacles=obstacles)
-            attackers = [Agent(0, 2, AgentType.ATTACKER), Agent(0, 4, AgentType.ATTACKER)]
-            defenders = [Agent(1, 1, AgentType.DEFENDER),
-                         Agent(1, 3, AgentType.DEFENDER),
-                         Agent(1, 5, AgentType.DEFENDER)]
+            attackers = [make_attacker(0, 2, grid), make_attacker(0, 4, grid)]
+            defenders = [make_defender(3, 1),
+                         make_defender(3, 3),
+                         make_defender(3, 5)]
+            targets   = [(9, 1), (9, 4)]
+
+        else:
+            obstacles = [(2,1), (2,2), (2,3), (2,6), (4,0), (4,1), (4,2), (5, 6),
+                            (5,7), (6,2), (6,3), (6,4)]
+            grid = Grid(10, 8, obstacles=obstacles)
+            attackers = [make_attacker(0, 2, grid), make_attacker(0, 4, grid)]
+            defenders = [make_defender(1, 1),
+                            make_defender(1, 3),
+                            make_defender(1, 5)]
             targets   = [(9, 1), (9, 4)]
 
         return grid, attackers, defenders, targets

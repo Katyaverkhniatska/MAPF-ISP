@@ -1,44 +1,23 @@
 import itertools
 import random
+from collections import deque
 from typing import Dict, List, Set
 
 from allocation_strategies.allocation_strategy import AllocationStrategy
 from core_components.agent import Agent
 from core_components.grid import Grid, Vertex
-from core_components.grid_availability import GridAvailability
 from pathfinding.path_finder import PathFinder
 
 
 class BottleneckStrategy(AllocationStrategy):
     """
-    Bottleneck Simulation Allocation.
-
-    High-level idea: repeatedly simulate attacker paths towards their targets,
-    find the vertex crossed by the most simulated paths, search its vicinity
-    for a "bottleneck" (a gap between two separate groups of obstacles), and
-    if one is found, assign defenders to block it. Vertices used to block a
-    bottleneck become forbidden for subsequent path simulations, so the next
-    iteration routes attackers around it and can reveal further bottlenecks.
-    The process stops when there are no more available defenders or no more
-    bottlenecks are found; any leftover defenders are assigned to remaining
-    targets at random (as in RandomStrategy).
-
-    Attacker targets: per Algorithm 1, defenders don't know attackers'
-    true intended targets. A guess δ⁰_A is made once per allocate()
-    call — one random target per attacker, drawn from the known target
-    set — and every path simulation in the while-loop below is run
-    against that fixed guess. Only the *paths* change between
-    iterations, as newly-forbidden bottleneck vertices force re-routing.
-
-    Set use_true_targets=True to bypass the guess and use each
-    attacker's actual known target instead (useful as an idealized
-    baseline for comparison, not paper-accurate).
+    Bottleneck Simulation Allocation directly following Algorithm 1 in
+    Ivanová & Surynek (2017).
     """
 
     def __init__(self, use_true_targets: bool = False):
         self.use_true_targets = use_true_targets
         self.attackers_starting_positions: Set[Vertex] = set()
-        self.VICINITY_RADIUS = 0
 
     def allocate(
         self,
@@ -47,61 +26,73 @@ class BottleneckStrategy(AllocationStrategy):
         targets: List[Vertex],
         attackers: List[Agent],
     ) -> Dict[Agent, Vertex]:
-        
+
         if not defenders:
             return {}
-
         if not targets:
             raise ValueError("Cannot allocate defenders: no targets available.")
 
         path_finder = PathFinder(grid)
-
         available_defenders: List[Agent] = list(defenders)
         available_targets: List[Vertex] = list(targets)
         forbidden: Set[Vertex] = set()
         self.attackers_starting_positions = {a.get_position() for a in attackers}
         assignment: Dict[Agent, Vertex] = {}
 
-        self.VICINITY_RADIUS = max(grid.get_dimensions())
-
+        # Fixed guess delta_A' made once at the start (Algorithm 1)
         guessed_targets = self._determine_attacker_targets(attackers, targets)
 
+        counter = 0
         while available_defenders:
+            print(f"Count {counter}")
+            counter+=1
+            # Step 1: Simulate shortest paths avoiding forbidden nodes
             paths = self._simulate_attacker_paths(
                 grid, attackers, guessed_targets, forbidden, path_finder
             )
+            print("Paths:")
+            for p in paths:
+                print(f"    {p}")
             if not paths:
                 break
 
+            # Step 2: Vertex frequency computation
             frequency = self._vertex_frequency(paths)
-            w = self._select_frequent_vertex(frequency, available_defenders)
-
-            bottleneck = self._search_vicinity(grid, w, forbidden, attackers, guessed_targets, paths, path_finder)
-            if not bottleneck:
+            if not frequency:
                 break
 
-            chosen_defenders = available_defenders[: len(bottleneck)]
-            bottleneck_vertices = list(bottleneck)[: len(chosen_defenders)]
+            print(f"\nFrequencies: ")
+            for V in frequency.keys():
+                print(f"    vertex: {V}, freq.: {frequency.get(V)}")
+
+            # Step 3: Select w in argmax f(v) closest to defender centroid
+            w = self._select_frequent_vertex(frequency, available_defenders)
+
+            # Step 4: Search vicinity of w for bottleneck B
+            bottleneck = self._search_vicinity(
+                grid, w, forbidden, attackers, guessed_targets, paths, path_finder
+            )
+
+            if not bottleneck:
+                break  # Algorithm 1 breaks if B is empty
+
+            # Step 5: Assign defenders to bottleneck B
+            num_to_assign = min(len(available_defenders), len(bottleneck))
+            chosen_defenders = available_defenders[:num_to_assign]
+            bottleneck_vertices = bottleneck[:num_to_assign]
 
             for defender, vertex in zip(chosen_defenders, bottleneck_vertices):
                 assignment[defender] = vertex
 
-            available_defenders = available_defenders[len(chosen_defenders):]
+            available_defenders = available_defenders[num_to_assign:]
             forbidden |= set(bottleneck_vertices)
 
-        # Assign leftover defenders to remaining targets
-        if available_targets:
+        # Fallback: assign remaining defenders to random targets (Algorithm 1)
+        if available_targets and available_defenders:
             random.shuffle(available_targets)
             for defender, target in zip(available_defenders, itertools.cycle(available_targets)):
                 assignment[defender] = target
-
             available_defenders = []
-
-        if available_defenders:
-            raise ValueError(
-                f"Failed to allocate all defenders: {len(available_defenders)} defender(s) "
-                "left unassigned because no targets were available."
-            )
 
         return assignment
 
@@ -109,18 +100,7 @@ class BottleneckStrategy(AllocationStrategy):
         self, attackers: List[Agent], targets: List[Vertex]
     ) -> Dict[Agent, Vertex]:
         if self.use_true_targets:
-            return {
-                a: target
-                for a in attackers 
-                if (target := a.get_target()) is not None
-            }
-        return self._guess_attacker_targets(attackers, targets)
-
-    def _guess_attacker_targets(
-        self, attackers: List[Agent], targets: List[Vertex]
-    ) -> Dict[Agent, Vertex]:
-        if not targets:
-            return {}
+            return {a: target for a in attackers if (target := a.get_target()) is not None}
         return {attacker: random.choice(targets) for attacker in attackers}
 
     def _simulate_attacker_paths(
@@ -143,7 +123,6 @@ class BottleneckStrategy(AllocationStrategy):
                     path = path_finder.find_path(start, goal)
                 except ValueError:
                     path = None
-                
                 if path:
                     paths.append(path)
             return paths
@@ -168,32 +147,27 @@ class BottleneckStrategy(AllocationStrategy):
         frequency: Dict[Vertex, int] = {}
         for path in paths:
             for vertex in path:
-                frequency[vertex] = frequency.get(vertex, 0) + 1
+                if vertex not in self.attackers_starting_positions:
+                    frequency[vertex] = frequency.get(vertex, 0) + 1
         return frequency
 
     def _select_frequent_vertex(
         self, frequency: Dict[Vertex, int], available_defenders: List[Agent]
     ) -> Vertex:
-        allowed_frequent = [(v, f) for (v, f) in frequency.items() if v not in self.attackers_starting_positions]
-
-        if not allowed_frequent:
-            raise RuntimeError("No available positions for defenders.")
-
-        allowed_frequent_dict = dict(allowed_frequent)
-        
-        max_freq = max(allowed_frequent_dict.values())
-        candidates = [v for v, f in allowed_frequent_dict.items() if f == max_freq]
+        max_freq = max(frequency.values())
+        candidates = [v for v, f in frequency.items() if f == max_freq]
 
         if len(candidates) == 1:
             return candidates[0]
 
+        # Centroid tie-breaking as specified in Section 4.3
         cx = sum(d.get_position()[0] for d in available_defenders) / len(available_defenders)
         cy = sum(d.get_position()[1] for d in available_defenders) / len(available_defenders)
 
-        def dist_to_defenders(v: Vertex) -> float:
+        def dist_to_centroid(v: Vertex) -> float:
             return (v[0] - cx) ** 2 + (v[1] - cy) ** 2
 
-        return min(candidates, key=dist_to_defenders)
+        return min(candidates, key=dist_to_centroid)
 
     def _search_vicinity(
         self,
@@ -206,8 +180,9 @@ class BottleneckStrategy(AllocationStrategy):
         path_finder: PathFinder,
     ) -> List[Vertex]:
         discovered_obstacles: Set[Vertex] = set()
+        max_radius = max(grid.get_dimensions())
 
-        for radius in range(1, max(self.VICINITY_RADIUS, 3) + 1):
+        for radius in range(1, max_radius + 1):
             discovered_obstacles |= self._fringe_obstacles(grid, w, radius)
             if len(discovered_obstacles) < 2:
                 continue
@@ -216,78 +191,12 @@ class BottleneckStrategy(AllocationStrategy):
 
             if len(components) > 1:
                 gap = self._shortest_gap_between_components(grid, components, forbidden, w)
-                
                 if gap and self._is_real_bottleneck(
                     grid, gap, forbidden, attackers, guessed_targets, original_paths, path_finder
                 ):
                     return gap
 
         return []
-
-    def _local_obstacle_components(
-        self, grid: Grid, local_obstacles: Set[Vertex], w: Vertex, radius: int
-    ) -> List[Set[Vertex]]:
-        wx, wy = w
-        window_min_x, window_max_x = wx - radius, wx + radius
-        window_min_y, window_max_y = wy - radius, wy + radius
-
-        def in_window(pos: Vertex) -> bool:
-            x, y = pos
-            return window_min_x <= x <= window_max_x and window_min_y <= y <= window_max_y
-
-        unvisited = set(local_obstacles)
-        components = []
-
-        while unvisited:
-            seed = unvisited.pop()
-            component = {seed}
-            queue = [seed]
-
-            while queue:
-                curr = queue.pop()
-                cx, cy = curr
-
-                for dx in (-1, 0, 1):
-                    for dy in (-1, 0, 1):
-                        if dx == 0 and dy == 0:
-                            continue
-                        nbr = (cx + dx, cy + dy)
-                        if (
-                            in_window(nbr)
-                            and grid.is_in_bounds(nbr)
-                            and grid.is_obstacle(nbr)
-                        ):
-                            if nbr in unvisited:
-                                component.add(nbr)
-                                unvisited.remove(nbr)
-                                queue.append(nbr)
-
-            components.append(component)
-
-        return components
-
-    def _is_real_bottleneck(
-        self,
-        grid: Grid,
-        candidate_gap: List[Vertex],
-        forbidden: Set[Vertex],
-        attackers: List[Agent],
-        guessed_targets: Dict[Agent, Vertex],
-        original_paths: List[List[Vertex]],
-        path_finder: PathFinder,
-    ) -> bool:
-        test_forbidden = forbidden | set(candidate_gap)
-        new_paths = self._simulate_attacker_paths(
-            grid, attackers, guessed_targets, test_forbidden, path_finder
-        )
-
-        if len(new_paths) != len(original_paths):
-            return True
-
-        orig_costs = [len(p) for p in original_paths]
-        new_costs = [len(p) for p in new_paths]
-
-        return orig_costs != new_costs
 
     def _fringe_obstacles(self, grid: Grid, center: Vertex, radius: int) -> Set[Vertex]:
         cx, cy = center
@@ -302,6 +211,43 @@ class BottleneckStrategy(AllocationStrategy):
                         fringe.add((x, y))
         return fringe
 
+    def _local_obstacle_components(
+        self, grid: Grid, local_obstacles: Set[Vertex], w: Vertex, radius: int
+    ) -> List[Set[Vertex]]:
+        wx, wy = w
+        window_min_x, window_max_x = wx - radius, wx + radius
+        window_min_y, window_max_y = wy - radius, wy + radius
+
+        def in_window(pos: Vertex) -> bool:
+            return window_min_x <= pos[0] <= window_max_x and window_min_y <= pos[1] <= window_max_y
+
+        unvisited = set(local_obstacles)
+        components = []
+
+        while unvisited:
+            seed = unvisited.pop()
+            component = {seed}
+            queue = [seed]
+
+            while queue:
+                curr = queue.pop()
+                cx, cy = curr
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        if dx == 0 and dy == 0:
+                            continue
+                        nbr = (cx + dx, cy + dy)
+                        if in_window(nbr) and grid.is_in_bounds(nbr) and grid.is_obstacle(nbr):
+                            if nbr in unvisited:
+                                component.add(nbr)
+                                unvisited.remove(nbr)
+                                queue.append(nbr)
+
+            components.append(component)
+
+        components.sort(key=lambda c: (min(v[0] for v in c), min(v[1] for v in c)))
+        return components
+
     def _shortest_gap_between_components(
         self,
         grid: Grid,
@@ -309,15 +255,20 @@ class BottleneckStrategy(AllocationStrategy):
         forbidden: Set[Vertex],
         w: Vertex,
     ) -> List[Vertex]:
+        print(f"\nIn _shortest_gap_between_components")
+        print(f"W: {w}")
+        print("Components:")
+        for c in components:
+            print(f"    {c}")
         first, *rest = components
+        print(f"Fist: {first}")
         other_obstacles = set().union(*rest) if rest else set()
         if not other_obstacles:
             return []
+        print(f"Other obstacles: {other_obstacles}")
 
-        def passable(pos: Vertex) -> bool:    
-            if pos not in forbidden:
-                return grid.is_passable(pos)
-            return False
+        def passable(pos: Vertex) -> bool:
+            return pos not in forbidden and grid.is_passable(pos)
 
         def touches_other_component(pos: Vertex) -> bool:
             x, y = pos
@@ -328,11 +279,6 @@ class BottleneckStrategy(AllocationStrategy):
                     if (x + dx, y + dy) in other_obstacles:
                         return True
             return False
-
-        def dist_to_w(pos: Vertex) -> float:
-            return (pos[0] - w[0]) ** 2 + (pos[1] - w[1]) ** 2
-
-        from collections import deque
 
         dist: Dict[Vertex, int] = {}
         parent: Dict[Vertex, Vertex | None] = {}
@@ -377,9 +323,38 @@ class BottleneckStrategy(AllocationStrategy):
         if not best_candidates:
             return []
 
-        target = min(best_candidates, key=dist_to_w)
+        target = min(best_candidates, key=lambda pos: (pos[0] - w[0]) ** 2 + (pos[1] - w[1]) ** 2)
         path = [target]
         curr = path[-1]
         while (curr := parent.get(curr)) is not None:
             path.append(curr)
         return list(reversed(path))
+
+    def _is_real_bottleneck(
+        self,
+        grid: Grid,
+        candidate_gap: List[Vertex],
+        forbidden: Set[Vertex],
+        attackers: List[Agent],
+        guessed_targets: Dict[Agent, Vertex],
+        original_paths: List[List[Vertex]],
+        path_finder: PathFinder,
+    ) -> bool:
+        """
+        Validates if blocking candidate_gap alters attacker trajectories,
+        matching Section 4.3 ("If updated paths are unchanged...").
+        """
+        test_forbidden = forbidden | set(candidate_gap)
+        new_paths = self._simulate_attacker_paths(
+            grid, attackers, guessed_targets, test_forbidden, path_finder
+        )
+
+        # Path count changed (some attacker cut off entirely)
+        if len(new_paths) != len(original_paths):
+            return True
+
+        # Path trajectories/lengths changed (detours forced)
+        orig_costs = [len(p) for p in original_paths]
+        new_costs = [len(p) for p in new_paths]
+
+        return orig_costs != new_costs

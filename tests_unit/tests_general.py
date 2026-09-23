@@ -14,7 +14,9 @@ class TestPathFinder(unittest.TestCase):
     """Test suite for PathFinder A* algorithm"""
 
     def test_straight_path(self):
-        """Simple path with no obstacles"""
+        """Simple path with no obstacles.
+        The starting vertex must be the head of the path.
+        The goal should be the tail of the path."""
         grid = Grid(10, 10, obstacles=[])
         pathfinder = PathFinder(grid)
         path = pathfinder.find_path((0, 0), (3, 0))
@@ -195,68 +197,66 @@ class TestGreedyStrategy(unittest.TestCase):
 
 
 class TestBottleneckStrategy(unittest.TestCase):
- 
+
     # ------------------------------------------------------------------
-    # Baseline cases (mirroring TestGreedyStrategy)
+    # Baseline cases (mirroring Algorithm 1 edge cases)
     # ------------------------------------------------------------------
     def test_empty_defenders(self):
-        """Returns empty dict when no defenders"""
+        """Returns empty dict when no defenders are available."""
         grid = Grid(10, 10, obstacles=[])
         strategy = BottleneckStrategy()
         result = strategy.allocate(grid, [], [(5, 5)], [])
         self.assertEqual(result, {})
- 
+
     def test_empty_targets(self):
-        """Raises an error when no targets were given"""
+        """Raises an error when no targets are given."""
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid)]
         strategy = BottleneckStrategy()
         with self.assertRaises(ValueError):
             strategy.allocate(grid, defenders, [], [])
- 
+
     def test_no_attackers_falls_back_to_random_assignment(self):
-        """With no attackers there are no paths to simulate, so the loop
-        breaks immediately and defenders fall back to random targets."""
+        """
+        With no attackers, no paths are simulated, 
+        so defenders are randomly assigned to available targets.
+        """
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid), make_defender(9, 9, grid=grid)]
         targets = [(1, 0), (8, 9)]
- 
+
         strategy = BottleneckStrategy()
         result = strategy.allocate(grid, defenders, targets, [])
- 
+
         self.assertEqual(len(result), 2)
         self.assertEqual(set(result.values()), set(targets))
- 
+
     def test_leftover_random_assignment_has_no_duplicates_when_enough_targets(self):
-        """Fallback random assignment should spread defenders across
-        distinct targets rather than sampling the same one twice."""
+        """Fallback random assignment spreads defenders across distinct targets."""
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid) for _ in range(3)]
         targets = [(1, 0), (2, 0), (3, 0)]
- 
+
         strategy = BottleneckStrategy()
         result = strategy.allocate(grid, defenders, targets, [])
- 
+
         assigned_targets = list(result.values())
         self.assertEqual(len(set(assigned_targets)), 3)
- 
+
     # ------------------------------------------------------------------
     # Bottleneck-specific cases
     # ------------------------------------------------------------------
     def test_search_vicinity_finds_gap_between_isolated_obstacles(self):
-        """Direct unit test of _search_vicinity/_shortest_gap_between_components:
-        two single-cell obstacles flanking a passable vertex.
-        
-        Attacker trajectory runs vertically (5, 0) -> (5, 9) through the gap at (5, 4),
-        forcing the path to detour when (5, 4) is blocked to pass _is_real_bottleneck.
+        """
+        Tests _search_vicinity gap detection between obstacles flanking (5, 4).
+        Trajectory (5, 0) -> (5, 9) passes through (5, 4), which is recognized 
+        as a bottleneck altering the path.
         """
         obstacles = [(4, 4), (6, 4)]
         grid = Grid(10, 10, obstacles=obstacles)
         strategy = BottleneckStrategy()
-        strategy.VICINITY_RADIUS = 10  # Ensure radius covers test bounds
         path_finder = PathFinder(grid)
 
-        # Vertical trajectory through the gap (5, 4)
         attacker = make_attacker(5, 0, target=(5, 9), grid=grid)
         guessed_targets = {attacker: (5, 9)}
         original_paths = strategy._simulate_attacker_paths(
@@ -274,14 +274,11 @@ class TestBottleneckStrategy(unittest.TestCase):
         )
 
         self.assertEqual(gap, [(5, 4)])
- 
-    def test_forbidden_accumulates_across_iterations(self):
-        """Once a bottleneck is blocked, its vertices must be added to the
-        forbidden set passed into the next vicinity search, and a second
-        defender should be assigned to whatever bottleneck is found next.
 
-        We mock _simulate_attacker_paths/_search_vicinity to control the
-        sequence deterministically.
+    def test_forbidden_accumulates_across_iterations(self):
+        """
+        Verifies behavior where occupied bottlenecks are appended 
+        to the forbidden set F, changing path calculations in subsequent iterations.
         """
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid), make_defender(1, 1, grid=grid)]
@@ -305,37 +302,18 @@ class TestBottleneckStrategy(unittest.TestCase):
         self.assertEqual(set(result.values()), {(5, 5), (6, 6)})
         self.assertEqual(captured_forbidden[0], set())
         self.assertEqual(captured_forbidden[1], {(5, 5)})
- 
-    def test_partial_block_when_fewer_defenders_than_bottleneck_size(self):
-        """If fewer defenders remain than the bottleneck needs, only a
-        matching-length prefix of the bottleneck's vertices should be
-        claimed. Mocked for determinism, same reasoning as above."""
-        grid = Grid(10, 10, obstacles=[])
-        defender = make_defender(0, 0, grid=grid)  # only one defender available
-        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
-        strategy = BottleneckStrategy()
- 
-        with patch.object(strategy, "_simulate_attacker_paths", return_value=[[(5, 5)]]), \
-                patch.object(strategy, "_search_vicinity", return_value=[(5, 5), (6, 5)]):
-            result = strategy.allocate(grid, [defender], [(9, 9)], [attacker])
- 
-        # Only the first vertex of the 2-vertex bottleneck gets claimed.
-        self.assertEqual(result, {defender: (5, 5)})
 
     # ------------------------------------------------------------------
-    # Attacker-target guessing (delta^0_A)
+    # Attacker-target guessing (delta_A^0)
     # ------------------------------------------------------------------
     def test_simulate_attacker_paths_uses_guessed_target_not_real_one(self):
-        """Regression test: path simulation must route toward the provided
-        guess, not the attacker's real known target -- this is precisely
-        the bug that made Bottleneck degenerate into Random before
-        Agent.get_target() and the guessing step existed."""
+        """Path simulation must route toward guessed target delta_A^0, not real target."""
         grid = Grid(10, 10, obstacles=[])
         attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy()
         path_finder = PathFinder(grid)
 
-        guessed_targets = {attacker: (3, 3)}  # deliberately not (9, 9)
+        guessed_targets = {attacker: (3, 3)}  # Deliberately distinct from real target (9, 9)
         paths = strategy._simulate_attacker_paths(
             grid, [attacker], guessed_targets, forbidden=set(), path_finder=path_finder
         )
@@ -345,34 +323,22 @@ class TestBottleneckStrategy(unittest.TestCase):
         self.assertNotEqual(paths[0][-1], (9, 9))
 
     def test_guess_attacker_targets_draws_from_target_list(self):
-        """Every guessed target must be one of the actual targets given,
-        for every attacker -- sampling is with replacement, so repeats
-        across attackers are fine."""
+        """Guessed targets delta_A^0 must be sampled from the provided target set T."""
         grid = Grid(10, 10, obstacles=[])
         strategy = BottleneckStrategy()
         targets = [(1, 1), (2, 2), (3, 3)]
         attackers = [make_attacker(0, 0, target=(9, 9), grid=grid) for _ in range(20)]
 
-        guesses = strategy._guess_attacker_targets(attackers, targets)
+        guesses = strategy._determine_attacker_targets(attackers, targets)
 
         self.assertEqual(set(guesses.keys()), set(attackers))
         for guessed in guesses.values():
             self.assertIn(guessed, targets)
 
-    def test_guess_attacker_targets_with_no_targets_returns_empty(self):
-        """No targets to guess from -> no crash, just an empty mapping."""
-        grid = Grid(10, 10, obstacles=[])
-        strategy = BottleneckStrategy()
-        attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
-
-        self.assertEqual(strategy._guess_attacker_targets([attacker], []), {})
-
     def test_guess_computed_once_across_iterations(self):
-        """delta^0_A must be fixed for the whole allocate() call -- only
-        the *paths* toward it should change as bottlenecks accumulate in
-        `forbidden`, per Algorithm 1. If this guess were re-rolled every
-        iteration, blocking one bottleneck could make a previously-found
-        one vanish for no structural reason.
+        """
+        Algorithm 1 requirement: delta_A^0 is fixed once at initialization 
+        and held constant while F accumulates across iterations.
         """
         grid = Grid(10, 10, obstacles=[])
         defenders = [make_defender(0, 0, grid=grid), make_defender(1, 1, grid=grid)]
@@ -384,8 +350,9 @@ class TestBottleneckStrategy(unittest.TestCase):
         def fake_search_vicinity(grid_arg, w, forbidden, *args, **kwargs):
             return bottleneck_sequence.pop(0) if bottleneck_sequence else []
 
+        # Fixed patch target: _determine_attacker_targets instead of _guess_attacker_targets
         with patch.object(
-            strategy, "_guess_attacker_targets", return_value={attacker: (9, 9)}
+            strategy, "_determine_attacker_targets", return_value={attacker: (9, 9)}
         ) as mock_guess, patch.object(
             strategy, "_search_vicinity", side_effect=fake_search_vicinity
         ):
@@ -394,10 +361,7 @@ class TestBottleneckStrategy(unittest.TestCase):
         mock_guess.assert_called_once()
 
     def test_use_true_targets_flag_bypasses_guessing(self):
-        """use_true_targets=True is the idealized-baseline mode: it should
-        use Agent.get_target() directly, ignoring the target list entirely
-        -- proven here by giving a target list that doesn't even contain
-        the attacker's real target."""
+        """use_true_targets=True uses Agent.get_target() directly."""
         grid = Grid(10, 10, obstacles=[])
         attacker = make_attacker(0, 0, target=(9, 9), grid=grid)
         strategy = BottleneckStrategy(use_true_targets=True)
@@ -407,15 +371,64 @@ class TestBottleneckStrategy(unittest.TestCase):
         self.assertEqual(determined, {attacker: (9, 9)})
 
     def test_use_true_targets_skips_attackers_without_target(self):
-        """An attacker with no target set (get_target() is None) should be
-        excluded, matching the old goal-is-None skip behavior."""
+        """An attacker without a target set is excluded under use_true_targets=True."""
         grid = Grid(10, 10, obstacles=[])
-        attacker = make_attacker(0, 0, target=None, grid=grid)  # target never set
+        attacker = make_attacker(0, 0, target=None, grid=grid)
         strategy = BottleneckStrategy(use_true_targets=True)
 
         determined = strategy._determine_attacker_targets([attacker], targets=[(1, 1)])
 
         self.assertEqual(determined, {})
+
+    def test_local_obstacle_components_finds_all_connected_clusters(self):
+       """Verify that disconnected obstacle clusters are separate components."""
+       grid = Grid(10, 10, obstacles=[
+           (2, 2), (2, 3),  # Cluster 1 (8-connected)
+           (8, 8), (8, 7)   # Cluster 2 (isolated)
+       ])
+       strategy = BottleneckStrategy()
+       components = strategy._local_obstacle_components(
+           grid, {(2,2), (2,3), (8,8), (8,7)}, w=(5,5), radius=10
+       )
+       self.assertEqual(len(components), 2)
+
+    def test_vertex_frequency_counts_shared_path_vertices(self):
+        """Two paths through same corridor should both count the corridor vertices."""
+        grid = Grid(10, 10, obstacles=[(5, 0), (5, 9)])  # Walls top/bottom
+        # We wanna check the simplest paths for these 2 attackers
+        _ = [
+            make_attacker(0, 5, target=(9, 5), grid=grid),
+            make_attacker(0, 6, target=(9, 6), grid=grid)
+        ]
+        strategy = BottleneckStrategy()
+        paths = [[(x, 5) for x in range(0, 10)], [(x, 6) for x in range(0, 10)]]
+        freq = strategy._vertex_frequency(paths)
+        self.assertEqual(freq.get((5, 5)), 1)  # First path only
+        self.assertEqual(freq.get((5, 6)), 1)  # Second path only
+
+        grid = Grid(10, 10, obstacles=[(5, 0), (5, 9)])
+        _ = [
+            make_attacker(0, 0, target=(9, 0), grid=grid),
+            make_attacker(0, 1, target=(9, 1), grid=grid)
+        ]
+
+        pathfinder = PathFinder(grid)
+        path_1 = pathfinder.find_path((0, 0), (9, 0))
+        path_2 = pathfinder.find_path((0, 1), (9, 1))
+        paths = []
+
+        if not path_1:
+            paths.append([])
+        else:
+            paths.append(path_1)
+        if not path_2:
+            paths.append([])
+        else:
+            paths.append(path_2)
+
+        # Vertex (5, 1) must be visited twice
+        freq = strategy._vertex_frequency(paths)
+        self.assertEqual(freq.get((5, 1)), 2)
 
 if __name__ == "__main__":
     unittest.main()

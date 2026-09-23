@@ -92,10 +92,13 @@ class Simulation:
             return None
 
         self.step_count += 1
+        # print(f"\nStep: {self.step_count}")
+        # print("\nMark taken:")
         self._mark_all_agents_taken()
-        # Defenders move first, then attackers -- matches the paper's
-        # own turn-based framing (Fig. 6: "It is defenders' turn").
+        # Defenders move first, then attackers
+        # print(f"\nMove defenders:")
         self._move_group(self.defenders)
+        # print(f"\nMove attackers:")
         self._move_group(self.attackers)
         self._update_target_states()
 
@@ -115,6 +118,7 @@ class Simulation:
     def _mark_all_agents_taken(self):
         for agent in self.defenders + self.attackers:
             self.grid.mark_taken(agent.get_position())
+            # print(f" {agent.get_position()}")
 
     def _move_group(self, agents: List[Agent]):
         for agent in agents:
@@ -123,6 +127,7 @@ class Simulation:
     def _move_one(self, agent: Agent):
         target = agent.get_target()
         pos = agent.get_position()
+        # print(f"\n  Moving ({agent}) from {pos}")
         if target is None or pos == target:
             return
 
@@ -140,14 +145,17 @@ class Simulation:
                 self.grid.mark_taken(pos)
 
         if not path or len(path) < 2:
+            # print(f"    Path {path} is not available")
             # blocked or already arrived -- stay put
             return
 
         next_pos = path[1]
+        # print(f"    to {next_pos}")
         # Defensive: PathFinder should already avoid TAKEN/obstacle cells
         # (Bottleneck already relies on this), so this should be
         # unreachable -- kept as a safety net against future changes.
         if self.grid.is_taken(next_pos) or self.grid.is_obstacle(next_pos):
+            # print("TRIED TO MOVE TO TAKEN OR OBSTACLE")
             return
 
         self.grid.unmark_taken(pos)
@@ -171,6 +179,18 @@ class Simulation:
                 continue
 
             if isinstance(self.strategy, BottleneckStrategy):
+                # Only trust "no path" as PERMANENT if every defender that
+                # could be forming the cut has already settled on its
+                # assigned bottleneck vertex -- otherwise it's a transient
+                # artifact of agents still moving into place.
+                settled = all(
+                    d.get_position() == d.get_target()
+                    for d in self.defenders
+                    if d.get_target() not in self.targets
+                )
+                if not settled:
+                    continue  # don't evaluate reachability yet this tick
+                
                 attacker_can_reach = False
                 for attacker in self.attackers:
                     if attacker.get_target() == target:
