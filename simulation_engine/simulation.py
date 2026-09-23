@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Set
 
+from allocation_strategies.bottleneck_strategy import BottleneckStrategy
 from core_components.agent import Agent
 from core_components.grid import Grid, Vertex
 from allocation_strategies.allocation_strategy import AllocationStrategy
@@ -125,10 +126,18 @@ class Simulation:
         if target is None or pos == target:
             return
 
+        # Temporarily unmark start node so PathFinder isn't blocked by self
+        was_taken = self.grid.is_taken(pos)
+        if was_taken:
+            self.grid.unmark_taken(pos)
+
         try:
             path = self.path_finder.find_path(pos, target)
         except ValueError:
             path = None
+        finally:
+            if was_taken:
+                self.grid.mark_taken(pos)
 
         if not path or len(path) < 2:
             # blocked or already arrived -- stay put
@@ -149,35 +158,45 @@ class Simulation:
     # Target resolution
     # ------------------------------------------------------------------
     def _update_target_states(self):
-        positions = {a.get_position(): a for a in self.defenders + self.attackers}
+        defender_positions = {d.get_position() for d in self.defenders}
+        attacker_positions = {a.get_position() for a in self.attackers}
+
         unresolved = set(self.targets) - self.captured_targets - self.protected_targets
         for target in unresolved:
-            occupant = positions.get(target)
-            if occupant is not None:
-                if occupant in self.defenders:
-                    self.protected_targets.add(target)
-                else:
-                    self.captured_targets.add(target)
-                continue  # no need to check the other group if already resolved
+            if target in defender_positions:
+                self.protected_targets.add(target)
+                continue
+            elif target in attacker_positions:
+                self.captured_targets.add(target)
+                continue
 
-            if self.strategy.__class__.__name__ == "BottleneckStrategy":
-                # Check if any attacker can still reach this target
+            if isinstance(self.strategy, BottleneckStrategy):
                 attacker_can_reach = False
                 for attacker in self.attackers:
                     if attacker.get_target() == target:
+                        a_pos = attacker.get_position()
+                        
+                        # Temporarily unmark ONLY this attacker's start position 
+                        # so pathfinding isn't blocked by its own cell, 
+                        # while leaving defender blockades active on the grid.
+                        was_taken = self.grid.is_taken(a_pos)
+                        if was_taken:
+                            self.grid.unmark_taken(a_pos)
+
                         try:
-                            path = self.path_finder.find_path(attacker.get_position(), target)
+                            path = self.path_finder.find_path(a_pos, target)
                             if path:
                                 attacker_can_reach = True
                                 break
-                        except ValueError as e:
+                        except ValueError:
                             pass
+                        finally:
+                            if was_taken:
+                                self.grid.mark_taken(a_pos)
 
-                # If no attacker can reach the target, meaning that defenders 
-                # successfully blocked all the paths, it is considered protected
+                # If defenders block all paths to this target, it is protected
                 if not attacker_can_reach:
                     self.protected_targets.add(target)
-
     # ------------------------------------------------------------------
     # Snapshotting
     # ------------------------------------------------------------------

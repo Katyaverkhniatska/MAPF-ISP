@@ -49,7 +49,7 @@ class StatisticsCalculator:
             self._compute_targets_blocked_per_defender()
         )
         self.__paths_intercepted: Dict[int, int] = self._compute_paths_intercepted()
-
+        
     # ------------------------------------------------------------------
     # Per-agent time-to-target
     # ------------------------------------------------------------------
@@ -93,10 +93,21 @@ class StatisticsCalculator:
                 continue
 
             positions = {d.position: d.agent_id for d in snapshot.defenders}
+            assignments = {
+                d.target: d.agent_id 
+                for d in snapshot.defenders 
+                if d.target is not None
+            }
+
             for target in newly_protected:
+                # Check direct physical occupation first, fall back to target assignment
                 defender_id = positions.get(target)
+                if defender_id is None:
+                    defender_id = assignments.get(target)
+
                 if defender_id is not None:
                     counts[defender_id] = counts.get(defender_id, 0) + 1
+
             credited |= newly_protected
 
         return counts
@@ -125,23 +136,23 @@ class StatisticsCalculator:
     # Public ratio metrics
     # ------------------------------------------------------------------
     def success_rate(self) -> float:
-        """(targets_protected / total_targets) * 100"""
+        """Returns protection ratio in range [0.0, 1.0]."""
         if self.__total_targets == 0:
             return 0.0
-        return (self.__targets_protected / self.__total_targets) * 100
+        return self.__targets_protected / self.__total_targets
 
-    def average_attacker_time(self) -> float:
-        """Mean steps-to-target across attackers that actually arrived."""
+    def average_attacker_time(self) -> Optional[float]:
+        """Mean steps-to-target across attackers that arrived, or None if none arrived."""
         times = [t for t in self.__attacker_times.values() if t is not None]
         if not times:
-            return 0.0
+            return None
         return sum(times) / len(times)
 
-    def average_defender_time(self) -> float:
-        """Mean steps-to-target across defenders that actually arrived."""
+    def average_defender_time(self) -> Optional[float]:
+        """Mean steps-to-target across defenders that arrived, or None if none arrived."""
         times = [t for t in self.__defender_times.values() if t is not None]
         if not times:
-            return 0.0
+            return None
         return sum(times) / len(times)
 
     def defender_efficiency(self) -> float:

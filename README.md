@@ -33,12 +33,14 @@ MAP-ISP/
 │   ├── a_star.py                # ✅ A* algorithm implementation
 │   └── path_finder.py           # ✅ PathFinder class wrapper
 │
-├── tests/                       # 📝
+├── tests_deterministic/
 |   ├── tests_general.py         # ✅ Unit tests for core components
-|   ├── tests_bottleneck.py      # ✅ Deterministic map tests for BottleneckStrategy
-|   ├── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
 |   ├── util_tests.py            # ✅ Util and helper methods for testing
 │
+├── tests_unit/
+|   ├── tests_bottleneck.py      # ✅ Deterministic map tests for BottleneckStrategy
+|   ├── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
+|
 ├── visualization/               # 📝
 │   └── simulation_window.py     # Tkinter GUI main window
 │   └── control_panel.py         # GUI controls panel
@@ -281,4 +283,4 @@ Then use the GUI to:
 
 ---
 
-*Last updated: 13 September 2026 — Backend complete, feedback integrated, roadmap clarified*
+*Last updated: 23 September 2026 — Backend complete, feedback integrated, roadmap clarified*
