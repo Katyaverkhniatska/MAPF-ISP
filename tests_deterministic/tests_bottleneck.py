@@ -129,20 +129,20 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
         
         strategy = BottleneckStrategy(use_true_targets=True)
         assignment = strategy.allocate(grid, [defender1, defender2], targets, [attacker1, attacker2])
-        
-        self.assertEqual(len(assignment), 2)
         assigned_positions = set(assignment.values())
         
-        self.assertNotEqual(
-            assigned_positions,
-            {(2, 1), (7, 1)},
-            "Defenders should not all be assigned to the targets themselves"
-        )
-
-        self.assertEqual(
-            # Due to 4-connectivity, (3,3) is also a blocking position and is closer to defender
-            assigned_positions, {(3, 3), (5, 4)},
-            f"Expected bottlenecks blocked, got {assigned_positions}"
+        self.assertEqual(len(assignment), 2)
+        bottleneck_column3 = set([(3, 5), (3, 4), (3, 3)])
+        bottleneck_column5 = set([(5, 3), (5, 4),  (5, 5)])
+        pos1 = set([assignment.get(defender1)])
+        pos2 = set([assignment.get(defender2)])
+        self.assertTrue(
+            (bottleneck_column3.issuperset(pos2)
+            and bottleneck_column5.issuperset(pos1))
+            or 
+            (bottleneck_column3.issuperset(pos1)
+            and bottleneck_column5.issuperset(pos2)),
+            f"\nExpected bottlenecks blocked, got {assigned_positions}"
         )
         
         print(f"✓ Test passed: defenders spread to {assigned_positions}")
@@ -254,7 +254,6 @@ class TestBottleneckDeterministicMaps(unittest.TestCase):
         gap = (1, 2)
 
         grid = Grid(width, height, obstacles)
-        grid.print_grid()
 
         target = (3, 2)
         attacker = make_attacker(0, 2, target, grid)

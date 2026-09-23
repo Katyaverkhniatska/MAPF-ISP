@@ -102,3 +102,4 @@ class GridCanvas(tk.Canvas):
         x0, y0, x1, y1 = self._cell_rect(*pos)
         self.create_rectangle(x0+2, y0+2, x1-2, y1-2,
                                fill="", outline=self.COLOR_BOTTLENECK, width=3)
+        print("Here")

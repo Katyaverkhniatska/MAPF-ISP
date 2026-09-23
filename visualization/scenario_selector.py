@@ -7,7 +7,8 @@ class ScenarioSelector(ttk.Frame):
     SCENARIOS = {
         "Empty 7x7 (2v2)":       "empty_7x7",
         "Bottleneck Passage (2v3)": "bottleneck_passage",
-        "Complex Obstacles (2v3)":  "complex_obstacles",
+        "Complex Obstacles (2v3) A":  "complex_obstacles_a",
+        "Complex Obstacles (2v3) B": "complex_obstacles_b"
     }
 
     def __init__(self, parent, on_load, **kwargs):

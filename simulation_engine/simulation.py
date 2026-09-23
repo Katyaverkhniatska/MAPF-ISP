@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Set
 
+from allocation_strategies.bottleneck_strategy import BottleneckStrategy
 from core_components.agent import Agent
 from core_components.grid import Grid, Vertex
 from allocation_strategies.allocation_strategy import AllocationStrategy
@@ -91,10 +92,13 @@ class Simulation:
             return None
 
         self.step_count += 1
+        # print(f"\nStep: {self.step_count}")
+        # print("\nMark taken:")
         self._mark_all_agents_taken()
-        # Defenders move first, then attackers -- matches the paper's
-        # own turn-based framing (Fig. 6: "It is defenders' turn").
+        # Defenders move first, then attackers
+        # print(f"\nMove defenders:")
         self._move_group(self.defenders)
+        # print(f"\nMove attackers:")
         self._move_group(self.attackers)
         self._update_target_states()
 
@@ -114,6 +118,7 @@ class Simulation:
     def _mark_all_agents_taken(self):
         for agent in self.defenders + self.attackers:
             self.grid.mark_taken(agent.get_position())
+            # print(f" {agent.get_position()}")
 
     def _move_group(self, agents: List[Agent]):
         for agent in agents:
@@ -122,23 +127,35 @@ class Simulation:
     def _move_one(self, agent: Agent):
         target = agent.get_target()
         pos = agent.get_position()
+        # print(f"\n  Moving ({agent}) from {pos}")
         if target is None or pos == target:
             return
+
+        # Temporarily unmark start node so PathFinder isn't blocked by self
+        was_taken = self.grid.is_taken(pos)
+        if was_taken:
+            self.grid.unmark_taken(pos)
 
         try:
             path = self.path_finder.find_path(pos, target)
         except ValueError:
             path = None
+        finally:
+            if was_taken:
+                self.grid.mark_taken(pos)
 
         if not path or len(path) < 2:
+            # print(f"    Path {path} is not available")
             # blocked or already arrived -- stay put
             return
 
         next_pos = path[1]
+        # print(f"    to {next_pos}")
         # Defensive: PathFinder should already avoid TAKEN/obstacle cells
         # (Bottleneck already relies on this), so this should be
         # unreachable -- kept as a safety net against future changes.
         if self.grid.is_taken(next_pos) or self.grid.is_obstacle(next_pos):
+            # print("TRIED TO MOVE TO TAKEN OR OBSTACLE")
             return
 
         self.grid.unmark_taken(pos)
@@ -149,35 +166,57 @@ class Simulation:
     # Target resolution
     # ------------------------------------------------------------------
     def _update_target_states(self):
-        positions = {a.get_position(): a for a in self.defenders + self.attackers}
+        defender_positions = {d.get_position() for d in self.defenders}
+        attacker_positions = {a.get_position() for a in self.attackers}
+
         unresolved = set(self.targets) - self.captured_targets - self.protected_targets
         for target in unresolved:
-            occupant = positions.get(target)
-            if occupant is not None:
-                if occupant in self.defenders:
-                    self.protected_targets.add(target)
-                else:
-                    self.captured_targets.add(target)
-                continue  # no need to check the other group if already resolved
+            if target in defender_positions:
+                self.protected_targets.add(target)
+                continue
+            elif target in attacker_positions:
+                self.captured_targets.add(target)
+                continue
 
-            if self.strategy.__class__.__name__ == "BottleneckStrategy":
-                # Check if any attacker can still reach this target
+            if isinstance(self.strategy, BottleneckStrategy):
+                # Only trust "no path" as PERMANENT if every defender that
+                # could be forming the cut has already settled on its
+                # assigned bottleneck vertex -- otherwise it's a transient
+                # artifact of agents still moving into place.
+                settled = all(
+                    d.get_position() == d.get_target()
+                    for d in self.defenders
+                    if d.get_target() not in self.targets
+                )
+                if not settled:
+                    continue  # don't evaluate reachability yet this tick
+                
                 attacker_can_reach = False
                 for attacker in self.attackers:
                     if attacker.get_target() == target:
+                        a_pos = attacker.get_position()
+                        
+                        # Temporarily unmark ONLY this attacker's start position 
+                        # so pathfinding isn't blocked by its own cell, 
+                        # while leaving defender blockades active on the grid.
+                        was_taken = self.grid.is_taken(a_pos)
+                        if was_taken:
+                            self.grid.unmark_taken(a_pos)
+
                         try:
-                            path = self.path_finder.find_path(attacker.get_position(), target)
+                            path = self.path_finder.find_path(a_pos, target)
                             if path:
                                 attacker_can_reach = True
                                 break
-                        except ValueError as e:
+                        except ValueError:
                             pass
+                        finally:
+                            if was_taken:
+                                self.grid.mark_taken(a_pos)
 
-                # If no attacker can reach the target, meaning that defenders 
-                # successfully blocked all the paths, it is considered protected
+                # If defenders block all paths to this target, it is protected
                 if not attacker_can_reach:
                     self.protected_targets.add(target)
-
     # ------------------------------------------------------------------
     # Snapshotting
     # ------------------------------------------------------------------

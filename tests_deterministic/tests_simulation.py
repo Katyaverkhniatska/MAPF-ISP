@@ -326,14 +326,12 @@ class TestSimulationDeterministic(unittest.TestCase):
         t1, t2 = (3, 3), (3, 4)
         targets = [t1, t2]
 
-        a1 = Agent(0, 3, AgentType.ATTACKER)
-        a1.set_target(t1)
-        a2 = Agent(0, 4, AgentType.ATTACKER)
-        a2.set_target(t2)
+        a1 = make_attacker(0, 3, t1, grid)
+        a2 = make_attacker(0, 4, t2, grid)
         attackers = [a1, a2]
 
-        d1 = Agent(6, 3, AgentType.DEFENDER)
-        d2 = Agent(6, 4, AgentType.DEFENDER)
+        d1 = make_defender(6, 3, grid)
+        d2 = make_defender(6, 4, grid)
         defenders = [d1, d2]
 
         strategy = BottleneckStrategy(use_true_targets=True)
@@ -353,6 +351,67 @@ class TestSimulationDeterministic(unittest.TestCase):
                 print_simulation_step(grid, snapshot)
 
         self.assertTrue(sim.finished)
+
+    def test_protection_verdict_only_after_defender_settled(self):
+        # . . . # . A .
+        # A . . # . . .
+        # . D . # . . .
+        # . . . # . . .
+        # . . D . . . .
+        # . . . # . . .
+        # . . . # T . T
+        """Target shouldn't lock as 'protected' until its defending agent stops moving."""
+
+        print("\nRunning test_protection_verdict_only_after_defender_settled...")
+        width, height = 7, 7
+        # Gap in (3, 4)
+        obstacles = [(3, 0), (3, 1), (3, 2), (3, 3), (3, 5), (3, 6)]
+        grid = Grid(width, height, obstacles)
+
+        target_1, target_2 = (4, 6), (6, 6)
+        targets = [target_1, target_2]
+
+        attackers = [
+            # Use the targets guess
+            make_attacker(0, 1, target_1, grid),
+            make_attacker(5, 1, target_2, grid)
+        ]
+        defenders = [
+            make_defender(1, 2, grid),
+            make_defender(2, 4, grid)
+        ]
+
+        strategy = BottleneckStrategy(use_true_targets=True)
+        sim = Simulation(grid, defenders, attackers, targets, strategy, max_steps=20)
+
+        print("\n==================================================")
+        print("TEST 4: Bottleneck Is Not a Target")
+        print("==================================================")
+        print("Assignment:")
+        print(sim.defenders)
+        print(sim.attackers)
+
+        # Print initial state (Step 0)
+        print_simulation_step(grid, sim.history[0], "Initial State (Step 0)")
+
+        # Run simulation tick-by-tick and display
+        while not sim.finished:
+            snapshot = sim.step()
+            if snapshot:
+                print_simulation_step(grid, snapshot)
+
+        self.assertTrue(sim.finished)
+        final_step = sim.history[-1]
+        self.assertEqual(
+            len(final_step.protected_targets) + len(final_step.captured_targets), 
+            len(targets),
+            "All targets should be resolved (protected or captured)"
+        )
+        self.assertGreaterEqual(
+            len(final_step.protected_targets),
+            1,
+            "At least one target should be protected"
+        )
 
 
 if __name__ == "__main__":

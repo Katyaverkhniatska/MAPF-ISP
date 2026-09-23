@@ -15,9 +15,8 @@ def make_attacker(x, y, target, grid: Grid):
 
 
 def make_defender(x, y, grid: Grid):
-    """Build a defender and mark its position as taken in the grid."""
+    """Build a defender."""
     defender = Agent(x, y, AgentType.DEFENDER)
-    grid.mark_taken(defender.get_position())
     return defender
 
 

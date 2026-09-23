@@ -27,3 +27,6 @@ class Agent:
 
     def get_type(self) -> AgentType:
         return self.__type
+
+    def __repr__(self) -> str:
+        return f"Type: {self.__type}, position: (x:{self.__x}, y:{self.__y}), target: {self.__target}"
