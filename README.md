@@ -275,10 +275,10 @@ Then use the GUI to:
 | BottleneckStrategy | ✅ Complete | ✅ 13 Unit and 8 Deterministic Passing | Methods tested; end-to-end |
 | Simulation Engine | ✅ Complete | ✅ 13 Unit Tests and 4 Deterministic tests Passing | Full pipeline working |
 | Statistics Calculator | ✅ Complete | - | All metrics functional |
-| Tkinter GUI | 📝 New | - | The first working version exists, more features should be added |
+| Tkinter GUI | 📝 New | - | Now contains file loader for user's custom maps |
 | Scenario Loader | 📝 New | ✅ 10 Unit Tests Passing | Capable of importing files, handling errors |
 | Result Export | ⏳ Planned | — | Phase 6 |
 
 ---
 
-*Last updated: 23 September 2026 — Backend complete, feedback integrated, roadmap clarified*
+*Last updated: 24 September 2026 — Updated UI, tested*
