@@ -42,10 +42,7 @@ class BottleneckStrategy(AllocationStrategy):
         # Fixed guess delta_A' made once at the start (Algorithm 1)
         guessed_targets = self._determine_attacker_targets(attackers, targets)
 
-        counter = 0
         while available_defenders:
-            print(f"Count {counter}")
-            counter+=1
             # Step 1: Simulate shortest paths avoiding forbidden nodes
             paths = self._simulate_attacker_paths(
                 grid, attackers, guessed_targets, forbidden, path_finder

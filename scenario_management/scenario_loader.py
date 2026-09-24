@@ -29,7 +29,21 @@ class ScenarioLoader:
 
     @classmethod
     def from_json(cls, source: Union[str, Path]) -> Scenario:
-        """Loads and validates a scenario from a JSON file or JSON string."""
+        """Loads and validates a scenario from a JSON file or JSON string.
+        
+        Expected JSON Row Formats:
+        "width": _,
+        "height": _,
+        "obstacles": [[_, _], ...],
+        "targets": [[_, _], ...],
+        "defenders": [
+            {"x": _, "y": _},
+            {"x": _, "y": _}
+        ],
+        "attackers": [
+            {"x": _, "y": _, "target": [_, _]}
+        ]
+        """
         path = Path(source)
         if path.exists() and path.is_file():
             try:
@@ -117,7 +131,7 @@ class ScenarioLoader:
     @classmethod
     def _parse_dict(cls, data: Dict[str, Any]) -> Scenario:
         """Internal driver to validate schema constraints and construct Scenario objects."""
-
+        untargeted = []
         # 1. Validate Grid Dimensions
         width = data.get("width")
         height = data.get("height")
@@ -211,7 +225,16 @@ class ScenarioLoader:
                     raise ScenarioValidationError(f"Attacker #{idx} target ({tx}, {ty}) is out of bounds.")
 
                 agent.set_target((tx, ty))
-
+            else:
+                untargeted.append(agent)
+            
+            grid.mark_taken(agent.get_position())
             attackers.append(agent)
-
+        
+        if untargeted and not targets:
+            raise ScenarioValidationError(
+                "Attackers without a target were given, but no targets are defined.")
+        for i, agent in enumerate(untargeted):
+            agent.set_target(targets[i % len(targets)])
+        
         return Scenario(grid=grid, defenders=defenders, attackers=attackers, targets=targets)

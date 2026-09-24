@@ -34,22 +34,25 @@ MAP-ISP/
 │   └── path_finder.py           # ✅ PathFinder class wrapper
 │
 ├── tests_deterministic/
-|   ├── tests_general.py         # ✅ Unit tests for core components
-|   ├── util_tests.py            # ✅ Util and helper methods for testing
+|   ├── tests_bottleneck.py      # ✅ Deterministic map tests for BottleneckStrategy
+|   └── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
 │
 ├── tests_unit/
-|   ├── tests_bottleneck.py      # ✅ Deterministic map tests for BottleneckStrategy
-|   ├── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
+|   ├── util_tests.py            # ✅ Util and helper methods for testing
+|   ├── tests_general.py         # ✅ Unit tests for core components
+│   └── tests_scenario_loader.py # 📝 Unit tests for scenarious loader
+
+
 |
-├── visualization/               # 📝
-│   └── simulation_window.py     # Tkinter GUI main window
-│   └── control_panel.py         # GUI controls panel
-│   └── grid_canvas.py           # Main canvas that renders grid
-│   └── scenario_selector.py     # Panel for selecting maps and strategies
-│   └── statistics_panel.py      # Panel showing statistics values
+├── visualization/
+│   ├── simulation_window.py     # ✅ Tkinter GUI main window
+│   ├── control_panel.py         # ✅ GUI controls panel
+│   ├── grid_canvas.py           # ✅ Main canvas that renders grid
+│   ├── scenario_selector.py     # ✅ Panel for selecting maps and strategies
+│   └── statistics_panel.py      # ✅ Panel showing statistics values
 │
 ├── scenarios/
-│   └── scenario_loader.py       # ⏳ JSON/CSV scenario parsing (not yet implemented)
+│   └── scenario_loader.py       # 📝 JSON/CSV scenario parsing
 │
 ├── main.py                      # Application entry point
 ├── requirements.txt             # ⏳ Python dependencies (not yet implemented)
@@ -157,9 +160,8 @@ MAP-ISP/
   - Success rate (%)
   - Average time to capture/protection
   - Defender efficiency
----
 
-### ⏳ Not Yet Implemented (Frontend & Integration)
+### In active development
 
 #### Phase 5: Scenario Management (Planned)
 - `ScenarioLoader` — Parse and validate input
@@ -168,7 +170,7 @@ MAP-ISP/
   - Validation: grid dimensions positive, agent counts non-negative, all positions within bounds
   - Error messages for malformed input
 
-- Predefined benchmark scenarios from the research paper (if available)
+### ⏳ Not Yet Implemented (Frontend & Integration)
 
 #### Phase 6: Result Export (Planned)
 - Export simulation history to JSON
@@ -192,15 +194,13 @@ MAP-ISP/
 - [x] Update README to reflect actual implementation
 
 ### Short Term (This week)
-- [ ] Create scenario loader (JSON/CSV parsing)
-- [ ] Integration tests: GUI + simulation engine
-
-### Medium Term (1 Week)
+- [x] Create scenario loader (JSON/CSV parsing)
+- [x] Integration tests: GUI + simulation engine
 - [ ] Refine visualization (smooth scrolling, zoom, grid highlighting)
 - [ ] Add predefined benchmark scenarios
 - [ ] Performance profiling on large grids (100+ steps)
 
-### Final (2 Weeks)
+### Final
 - [ ] End-to-end testing (all features)
 - [ ] Edge case handling (invalid scenarios, very long simulations, etc.)
 - [ ] Documentation cleanup
@@ -276,7 +276,7 @@ Then use the GUI to:
 | Simulation Engine | ✅ Complete | ✅ 13 Unit Tests and 4 Deterministic tests Passing | Full pipeline working |
 | Statistics Calculator | ✅ Complete | - | All metrics functional |
 | Tkinter GUI | 📝 New | - | The first working version exists, more features should be added |
-| Scenario Loader | ⏳ Planned | — | Phase 5 |
+| Scenario Loader | 📝 New | ✅ 10 Unit Tests Passing | Capable of importing files, handling errors |
 | Result Export | ⏳ Planned | — | Phase 6 |
 
 ---
