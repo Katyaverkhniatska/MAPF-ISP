@@ -41,8 +41,6 @@ MAP-ISP/
 |   ├── util_tests.py            # ✅ Util and helper methods for testing
 |   ├── tests_general.py         # ✅ Unit tests for core components
 │   └── tests_scenario_loader.py # 📝 Unit tests for scenarious loader
-
-
 |
 ├── visualization/
 │   ├── simulation_window.py     # ✅ Tkinter GUI main window
@@ -51,8 +49,9 @@ MAP-ISP/
 │   ├── scenario_selector.py     # ✅ Panel for selecting maps and strategies
 │   └── statistics_panel.py      # ✅ Panel showing statistics values
 │
-├── scenarios/
-│   └── scenario_loader.py       # 📝 JSON/CSV scenario parsing
+├── scenario_management/
+│   ├── scenario_loader.py       # 📝 JSON/CSV scenario and templates parsing
+│   └── scenario_generator.py    # 📝 generates scenrios from the provided templates
 │
 ├── main.py                      # Application entry point
 ├── requirements.txt             # ⏳ Python dependencies (not yet implemented)
