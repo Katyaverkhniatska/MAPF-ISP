@@ -147,7 +147,7 @@ class ScenarioLoader:
         """
         Safely checks whether `source` refers to an existing file. A raw
         JSON/CSV string can exceed the OS's max filename length, which
-        makes Path.exists() raise OSError instead of returning False --
+        makes Path.exists() raise OSError instead of returning False -
         so that's treated the same as "not a path".
         """
         try:
