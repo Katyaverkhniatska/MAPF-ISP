@@ -13,51 +13,60 @@ A Python-based interactive visualization and comparison tool for exploring defen
 ```
 MAP-ISP/
 ├── core_components/
-│   ├── agent.py                 # ✅ Agent class (position, type, movement, target assignment)
-│   ├── agent_type.py            # ✅ AgentType enum (ATTACKER, DEFENDER)
-│   ├── grid.py                  # ✅ Grid class (environment, obstacles)
-│   └── grid_availability.py     # ✅ GridAvailability enum (PASSABLE, OBSTACLE, TAKEN)
+│   ├── agent.py                  # ✅ Agent class (position, type, movement, target assignment)
+│   ├── agent_type.py             # ✅ AgentType enum (ATTACKER, DEFENDER)
+│   ├── grid.py                   # ✅ Grid class (environment, obstacles)
+│   └── grid_availability.py      # ✅ GridAvailability enum (PASSABLE, OBSTACLE, TAKEN)
 │
 ├── allocation_strategies/
-│   ├── allocation_strategy.py   # ✅ Base AllocationStrategy class
-│   ├── random_strategy.py       # ✅ Random allocation
-│   ├── greedy_strategy.py       # ✅ Greedy allocation
-│   └── bottleneck_strategy.py   # ✅ Bottleneck simulation allocation
+│   ├── allocation_strategy.py    # ✅ Base AllocationStrategy class
+│   ├── random_strategy.py        # ✅ Random allocation
+│   ├── greedy_strategy.py        # ✅ Greedy allocation
+│   └── bottleneck_strategy.py    # ✅ Bottleneck simulation allocation
 │
 ├── simulation_engine/           
-│   ├── simulation.py            # ✅ Simulation orchestrator
-│   ├── step_snapshot.py         # ✅ State snapshot data class
-│   └── statistics_calculator.py # ✅ Metrics derivation
+│   ├── simulation.py             # ✅ Simulation orchestrator
+│   ├── step_snapshot.py          # ✅ State snapshot data class
+│   ├── statistics_calculator.py  # ✅ Metrics derivation
+│   ├── batch_runner.py           # 📝 Runs every strategy against paired, generated layouts
+│   └── batch_aggregator.py       # 📝 Aggregates a batch run into per-strategy summaries
 │
 ├── pathfinding/
-│   ├── a_star.py                # ✅ A* algorithm implementation
-│   └── path_finder.py           # ✅ PathFinder class wrapper
+│   ├── a_star.py                 # ✅ A* algorithm implementation
+│   └── path_finder.py            # ✅ PathFinder class wrapper
 │
 ├── tests_deterministic/
-|   ├── tests_general.py         # ✅ Unit tests for core components
-|   ├── util_tests.py            # ✅ Util and helper methods for testing
+|   ├── tests_bottleneck.py       # ✅ Deterministic map tests for BottleneckStrategy
+|   └── tests_simulation.py       # ✅ Unit and deterministic tests for simulation components
 │
 ├── tests_unit/
-|   ├── tests_bottleneck.py      # ✅ Deterministic map tests for BottleneckStrategy
-|   ├── tests_simulation.py      # ✅ Unit and deterministic tests for simulation components
+|   ├── util_tests.py                     # ✅ Util and helper methods for testing
+|   ├── tests_general.py                  # ✅ Unit tests for core components
+│   ├── tests_scenario_loader.py          # ✅ Unit tests for scenario loader
+│   ├── tests_scenario_loader_template.py # 📝 Unit tests for scenario templates loader
+│   ├── tests_scenario_generator.py       # 📝 Unit tests for random layout generation
+│   ├── tests_batch_runner.py             # 📝 Unit tests for the batch runner
+│   └── tests_batch_aggregator.py         # 📝 Unit tests for batch statistics aggregation
 |
-├── visualization/               # 📝
-│   └── simulation_window.py     # Tkinter GUI main window
-│   └── control_panel.py         # GUI controls panel
-│   └── grid_canvas.py           # Main canvas that renders grid
-│   └── scenario_selector.py     # Panel for selecting maps and strategies
-│   └── statistics_panel.py      # Panel showing statistics values
+├── visualization/
+│   ├── simulation_window.py      # ✅ Tkinter GUI main window
+│   ├── control_panel.py          # ✅ GUI controls panel
+│   ├── grid_canvas.py            # ✅ Main canvas that renders grid
+│   ├── scenario_selector.py      # ✅ Panel for selecting maps and strategies
+│   ├── statistics_panel.py       # ✅ Panel showing statistics values
+│   └── batch_results_window.py   # ⏳ Planned: pop-up comparison table for batch mode
 │
-├── scenarios/
-│   └── scenario_loader.py       # ⏳ JSON/CSV scenario parsing (not yet implemented)
+├── scenario_management/
+│   ├── scenario_loader.py        # 📝 JSON/CSV scenario and templates parsing
+│   └── scenario_generator.py     # 📝 Generates randomized agent layouts from a template
 │
-├── main.py                      # Application entry point
-├── requirements.txt             # ⏳ Python dependencies (not yet implemented)
-├── README.md                    # This file
-├── Dockerfile                   # Docker configuration
-├── compose.yaml                 # Docker comppose.yaml file
-├── README.Docker.md             # Docker README.md file with usage instructions
-└── .gitignore                   # Git ignore rules
+├── main.py                       # Application entry point
+├── requirements.txt              # ⏳ Python dependencies (not yet implemented)
+├── README.md                     # This file
+├── Dockerfile                    # Docker configuration
+├── compose.yaml                  # Docker comppose.yaml file
+├── README.Docker.md              # Docker README.md file with usage instructions
+└── .gitignore                    # Git ignore rules
 ```
 
 **Legend:** ✅ = Implemented and tested |  ⏳ = Planned, not yet implemented | 📝 = New in this version
@@ -157,23 +166,35 @@ MAP-ISP/
   - Success rate (%)
   - Average time to capture/protection
   - Defender efficiency
----
 
-### ⏳ Not Yet Implemented (Frontend & Integration)
+### In active development
 
-#### Phase 5: Scenario Management (Planned)
-- `ScenarioLoader` — Parse and validate input
-  - JSON format: `{ "width": int, "height": int, "obstacles": [[x, y], ...], "attackers": [{x, y, target}, ...], "defenders": [{x, y}, ...], "targets": [[x, y], ...] }`
-  - CSV format: One row per entity type (grid dimensions, obstacles, agents, targets)
-  - Validation: grid dimensions positive, agent counts non-negative, all positions within bounds
-  - Error messages for malformed input
+#### Phase 5: Scenario Management
+- `ScenarioLoader` — Parse and validate input for two distinct use cases:
+  - **Concrete scenarios** (`from_json` / `from_csv`) — exact agent positions, run as-is
+    - JSON format: `{ "width": int, "height": int, "obstacles": [[x, y], ...], "attackers": [{x, y, target}, ...], "defenders": [{x, y}, ...], "targets": [[x, y], ...] }`
+    - CSV format: One row per entity type (`GRID`, `OBSTACLE`, `ATTACKER`, `DEFENDER`, `TARGET`)
+    - Attackers with no explicit target are auto-assigned round-robin from the target list
+    - Validation: grid dimensions positive, all positions within bounds, meaningful error messages for malformed input
+  - **Scenario templates** (`template_from_json` / `template_from_csv`, new) — a blueprint for batch mode: fixed obstacles/targets, but a rectangular `attacker_area` / `defender_area` plus `num_attackers` / `num_defenders` instead of exact positions, so a fresh layout can be generated every iteration
+    - `predefined_targets` flag: `true` requires an exact attacker/target count match; `false` assigns targets randomly each iteration
+    - Validation includes free-cell checks against obstacles/targets/area overlap before any iteration runs
+  - **Test Coverage:** 33 unit tests (10 for concrete scenarios, 23 for templates), all passing
+- `ScenarioGenerator` (new) — Turns a `ScenarioTemplate` into one concrete, random `GeneratedLayout` (attacker/defender coordinates + attacker targets) per call
+  - Wraps a single seeded `random.Random` stream: seeding once makes a whole batch's sequence of layouts reproducible, while each call still draws a fresh layout
+  - Shuffled round-robin target assignment when `predefined_targets=false`, so every target gets a fair share of attackers rather than relying on independent random picks
+  - Runtime safety net for overlapping spawn areas: re-checks free cells for defenders after attackers are placed, raising a clear error if a particular random draw left no room
+  - **Test Coverage:** 11 unit tests, all passing
 
-- Predefined benchmark scenarios from the research paper (if available)
-
-#### Phase 6: Result Export (Planned)
-- Export simulation history to JSON
-- Export statistics summary to text/CSV
-- Screenshot/video rendering of playback
+#### Phase 6 (new): Strategy Comparison / Batch Mode — in progress
+Runs every strategy against many randomly generated layouts from the same template and aggregates statistics, to compare strategies rather than just visualize one run.
+- `BatchRunner` (new, `simulation_engine/batch_runner.py`) — For each iteration, generates one layout and runs it against every requested strategy, so all strategies are compared on identical spawn positions (a paired comparison)
+  - Builds fresh `Grid`/`Agent` objects and a fresh strategy instance per (iteration, strategy) pair, since `Simulation` mutates both
+  - Two independent failure modes, tracked separately: a layout-generation failure skips that iteration for every strategy equally; a single strategy's runtime failure is recorded as `None` for that (strategy, iteration) slot without invalidating the other strategies' results — every strategy's result list stays the same length and index-aligned, so iteration *i* means the same layout for everyone
+  - **Test Coverage:** 9 unit tests, all passing
+- `batch_aggregator.aggregate()` (new, `simulation_engine/batch_aggregator.py`) — Reduces a `BatchResult` into one `StrategySummary` per strategy: mean/std success rate, mean targets protected/captured, mean arrival times (excluding runs where nobody arrived), defender efficiency, mean total steps, and a **win count** (how often each strategy protected the most targets on the same layout, ties awarded to all)
+  - **Test Coverage:** 7 unit tests, all passing
+- **Still planned:** a `Toplevel` results pop-up with a scrollable comparison table (one column per strategy), and wiring a "Compare strategies from file…" button into `SimulationWindow`
 
 ---
 
@@ -185,22 +206,20 @@ MAP-ISP/
 - [x] Implicit target protection for blocked paths
 - [x] Statistics calculator
 - [x] Deterministic map tests for BottleneckStrategy & Simulation Engine (52 tests passing)
-
-### Next (Immediate)
 - [x] Implement Tkinter GUI components (`SimulationWindow`, `GridCanvas`)
-- [ ] Address professor feedback on centroid heuristic (optional experiment)
-- [x] Update README to reflect actual implementation
 
 ### Short Term (This week)
-- [ ] Create scenario loader (JSON/CSV parsing)
-- [ ] Integration tests: GUI + simulation engine
-
-### Medium Term (1 Week)
+- [x] Create scenario loader (JSON/CSV parsing)
+- [x] Integration tests: GUI + simulation engine
+- [x] Scenario template format + free-cell/area validation
+- [x] Random layout generator with seeded reproducibility
+- [x] Batch runner (paired multi-strategy execution) + statistics aggregation
+- [ ] Batch comparison results pop-up (scrollable table)
+- [ ] Wire "Compare strategies from file…" button into `SimulationWindow`
 - [ ] Refine visualization (smooth scrolling, zoom, grid highlighting)
 - [ ] Add predefined benchmark scenarios
 - [ ] Performance profiling on large grids (100+ steps)
-
-### Final (2 Weeks)
+### Final
 - [ ] End-to-end testing (all features)
 - [ ] Edge case handling (invalid scenarios, very long simulations, etc.)
 - [ ] Documentation cleanup
@@ -230,10 +249,11 @@ python -m unittest discover -s tests_deterministic
 python main.py
 ```
 Then use the GUI to:
-1. Upload a scenario file (JSON/CSV) (not yet implemented, use pre-defined maps)
-2. Select two allocation strategies  (only one available now)
+1. Load a built-in scenario, or click "Load scenario from a file" (JSON/CSV) to add your own to the dropdown
+2. Select an allocation strategy (Random, Greedy, or Bottleneck)
 3. Click "Load & Run"
 4. Use play/pause/step controls to explore the results
+Batch/comparison mode (template-based, multiple strategies over many random layouts) is implemented at the engine level (`ScenarioLoader.template_from_json/csv`, `ScenarioGenerator`, `BatchRunner`, `batch_aggregator.aggregate`) but not yet wired into the GUI — see Phase 6.
 
 ---
 
@@ -275,10 +295,14 @@ Then use the GUI to:
 | BottleneckStrategy | ✅ Complete | ✅ 13 Unit and 8 Deterministic Passing | Methods tested; end-to-end |
 | Simulation Engine | ✅ Complete | ✅ 13 Unit Tests and 4 Deterministic tests Passing | Full pipeline working |
 | Statistics Calculator | ✅ Complete | - | All metrics functional |
-| Tkinter GUI | 📝 New | - | The first working version exists, more features should be added |
-| Scenario Loader | ⏳ Planned | — | Phase 5 |
-| Result Export | ⏳ Planned | — | Phase 6 |
+| Tkinter GUI | ✅ Complete (single-run mode) | - | File loader for custom maps; batch-mode UI still planned |
+| Scenario Loader | ✅ Complete | ✅ 33 Unit Tests Passing | Concrete scenarios + new template format (areas/counts) |
+| Scenario Generator | 📝 New | ✅ 11 Unit Tests Passing | Seeded random layouts from a template, for batch mode |
+| Batch Runner | 📝 New | ✅ 9 Unit Tests Passing | Paired multi-strategy execution, per-iteration failure isolation |
+| Batch Aggregator | 📝 New | ✅ 7 Unit Tests Passing | Mean/std, arrival times, win counts across a batch |
+| Batch Results GUI | ⏳ Planned | — | Scrollable comparison pop-up; button wiring into `SimulationWindow` |
+| Result Export | ⏳ Planned | — | Phase 7 |
 
 ---
 
-*Last updated: 23 September 2026 — Backend complete, feedback integrated, roadmap clarified*
+*Last updated: 27 September 2026 — Added scenario templates, random layout generation, and a multi-strategy batch runner with statistics aggregation (60 tests passing across scenario/batch modules); GUI comparison view still pending.*

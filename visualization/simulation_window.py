@@ -3,8 +3,9 @@ SimulationWindow - Main Tkinter GUI for MAPF-ISP Visualization
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
-from typing import Optional, List
+from tkinter import ttk, messagebox, filedialog
+from typing import Optional, List, Dict
+from pathlib import Path
 
 from core_components.agent import Agent
 from core_components.agent_type import AgentType
@@ -19,6 +20,8 @@ from visualization.grid_canvas import GridCanvas
 from visualization.scenario_selector import ScenarioSelector
 from visualization.statistics_panel import StatisticsPanel
 from visualization.control_panel import ControlPanel
+from scenario_management.scenario_loader import ScenarioLoader, ScenarioValidationError
+
 
 # ---------------------------------------------------------------------------
 # Main window
@@ -38,6 +41,7 @@ class SimulationWindow(tk.Tk):
         self.calculator: Optional[StatisticsCalculator] = None
         self.current_step = 0
         self._playback_job = None          # holds the `after` job id
+        self.loaded_files: Dict[str, Path] = {}
 
         self._build_ui()
 
@@ -45,7 +49,7 @@ class SimulationWindow(tk.Tk):
 
     def _build_ui(self):
         # -------------------- top bar --------------------
-        self.scenario_selector = ScenarioSelector(self, on_load=self._load_scenario)
+        self.scenario_selector = ScenarioSelector(self, on_load=self._load_scenario, on_browse=self._browse_file)
         self.scenario_selector.pack(fill=tk.X, padx=6, pady=6)
 
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X)
@@ -78,6 +82,36 @@ class SimulationWindow(tk.Tk):
         self.control_panel.pack(fill=tk.X, padx=6, pady=6)
 
     # -------------------- LOADING SCENARIOS --------------------
+    def _parse_file(self, path: Path):
+        suffix = path.suffix.lower()
+        if suffix == ".json":
+            return ScenarioLoader.from_json(path)
+        if suffix == ".csv":
+            return ScenarioLoader.from_csv(path)
+        raise ScenarioValidationError(
+            f"Unsupported file type '{path.suffix}'. Use .json or .csv.")
+
+    def _browse_file(self):
+        chosen = filedialog.askopenfilename(
+            title="Load scenario from a file",
+            filetypes=[("Scenario files", "*.json *.csv"),
+                    ("JSON", "*.json"), ("CSV", "*.csv")])
+        if not chosen:
+            return                       # dialog cancelled
+        path = Path(chosen)
+        try:
+            self._parse_file(path)       # validate now; result is discarded
+        except (ScenarioValidationError, OSError, UnicodeDecodeError) as exc:
+            messagebox.showerror("Invalid scenario file", str(exc))
+            return
+
+        name, n = path.stem, 2
+        while name in self.scenario_selector.scenarios:
+            name = f"{path.stem} ({n})"
+            n += 1
+        key = f"file:{name}"
+        self.loaded_files[key] = path
+        self.scenario_selector.add_scenario(name, key)
 
     def _load_scenario(self, scenario_key: str, strategy_name: str):
         """Build scenario, run simulation, reset display to step 0."""
@@ -85,7 +119,13 @@ class SimulationWindow(tk.Tk):
         self._pause()
 
         try:
-            grid, attackers, defenders, targets = self._build_scenario(scenario_key)
+            if scenario_key in self.loaded_files:
+                sc = self._parse_file(self.loaded_files[scenario_key])
+                grid, attackers, defenders, targets = sc.grid, sc.attackers, sc.defenders, sc.targets
+            else:
+                grid, attackers, defenders, targets = self._build_scenario(scenario_key)
+                for i, attacker in enumerate(attackers):
+                    attacker.set_target(targets[i % len(targets)])
 
             # Assign attacker targets (round-robin if more attackers than targets)
             for i, attacker in enumerate(attackers):
