@@ -20,3 +20,7 @@ dist/
 .installed.cfg
 *.egg
 old_implementation/
+
+# Test files
+*.json
+*.csv

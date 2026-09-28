@@ -13,6 +13,12 @@ class ScenarioValidationError(Exception):
     """Raised when scenario data fails validation rules."""
     pass
 
+# Keys that only ever appear in a scenario TEMPLATE (areas + counts), never
+# in a concrete scenario (exact agent positions
+_TEMPLATE_ONLY_KEYS = {
+    "attacker_area", "defender_area", "num_attackers",
+    "num_defenders", "predefined_targets",
+}
 
 @dataclass
 class Scenario:
@@ -196,7 +202,7 @@ class ScenarioLoader:
         for line_num, row in enumerate(reader, 1):
             row = [item.strip() for item in row if item.strip()]
             if not row or row[0].startswith("#"):
-                continue  # Skip empty lines and comments
+                continue
 
             tag = row[0].upper()
             try:
@@ -351,6 +357,16 @@ class ScenarioLoader:
     @classmethod
     def _parse_dict(cls, data: Dict[str, Any]) -> Scenario:
         """Internal driver to validate schema constraints and construct a concrete Scenario."""
+        
+        present_template_keys = _TEMPLATE_ONLY_KEYS & data.keys()
+        if present_template_keys:
+            raise ScenarioValidationError(
+                f"This file looks like a scenario TEMPLATE, not a concrete scenario "
+                f"(found template-only field(s): {', '.join(sorted(present_template_keys))}). "
+                f"Use ScenarioLoader.template_from_json/template_from_csv (or the "
+                f"'Compare strategies from file…' button) to load it instead."
+            )
+        
         width, height, is_in_bounds = cls._parse_grid_dims(data)
         parse_point = cls._parse_point
 
