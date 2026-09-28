@@ -1,11 +1,21 @@
 {
-  "width": 12, "height": 10,
-  "obstacles": [[4, 2], [4, 3]],
-  "targets": [[11, 3], [11, 7]],
-  "defender_area": {"row_min": 0, "row_max": 9, "col_min": 4, "col_max": 8},
-  "attacker_area": {"row_min": 0, "row_max": 9, "col_min": 0, "col_max": 2},
-  "num_attackers": 3,
+  "width": 10,
+  "height": 10,
+  "obstacles": [],
+  "targets": [],
+  "attacker_area": {
+    "row_min": 0,
+    "row_max": 4,
+    "col_min": 0,
+    "col_max": 4
+  },
+  "defender_area": {
+    "row_min": 5,
+    "row_max": 9,
+    "col_min": 5,
+    "col_max": 9
+  },
+  "num_attackers": 2,
   "num_defenders": 2,
-  "predefined_targets": false,
-  "max_steps": 50
+  "predefined_targets": false
 }

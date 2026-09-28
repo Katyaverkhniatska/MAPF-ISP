@@ -1,17 +1,5 @@
-# Grid specification: GRID, width, height
-GRID, 10, 10
-
-# Obstacles: OBSTACLE, x, y
-OBSTACLE, 4, 4
-OBSTACLE, 6, 4
-
-# Targets: TARGET, x, y
-TARGET, 5, 9
-TARGET, 8, 9
-
-# Defenders: DEFENDER, x, y
-DEFENDER, 0, 0
-DEFENDER, 1, 1
-
-# Attackers: ATTACKER, start_x, start_y, target_x, target_y (targets optional)
-ATTACKER, 5, 0, 5, 9
+GRID,10,10
+OBSTACLE,5,5
+TARGET,9,9
+DEFENDER,7,7
+ATTACKER,-1,3,9,9
